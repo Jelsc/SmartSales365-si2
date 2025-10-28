@@ -1,14 +1,14 @@
 """
-Seeder para datos de demostración o prueba específicos del proyecto de transporte.
+Seeder para datos de demostración o prueba específicos del proyecto de inventario.
 """
 from .base_seeder import BaseSeeder
 from django.contrib.auth import get_user_model
 
 User = get_user_model()
 
-class TransporteSeeder(BaseSeeder):
+class InventarioSeeder(BaseSeeder):
     """
-    Crea datos de demostración para el sistema de transporte.
+    Crea datos de demostración para el sistema de inventario.
     Coordina la ejecución de todos los seeders específicos.
     """
     
@@ -17,7 +17,7 @@ class TransporteSeeder(BaseSeeder):
         """
         Ejecuta todos los seeders en el orden correcto.
         """
-        print("🚀 Iniciando seeders del sistema de transporte...")
+        print("🚀 Iniciando seeders del sistema de inventario...")
         
         # 1. Asegurar que existan los roles
         from .rol_seeder import RolSeeder
@@ -61,7 +61,7 @@ class TransporteSeeder(BaseSeeder):
             # Vincular usuario1 con personal
             try:
                 user1 = CustomUser.objects.get(username='usuario1')
-                personal1 = Personal.objects.get(email='maria.gonzalez@transporte.com')
+                personal1 = Personal.objects.get(email='maria.gonzalez@inventario.com')
                 if not user1.personal:
                     user1.personal = personal1
                     user1.save()
@@ -72,7 +72,7 @@ class TransporteSeeder(BaseSeeder):
             # Vincular conductor1 con conductor
             try:
                 conductor_user = CustomUser.objects.get(username='conductor1')
-                conductor_profile = Conductor.objects.get(email='miguel.torres@transporte.com')
+                conductor_profile = Conductor.objects.get(email='miguel.torres@inventario.com')
                 if not conductor_user.conductor:
                     conductor_user.conductor = conductor_profile
                     conductor_user.save()

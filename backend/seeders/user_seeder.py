@@ -28,7 +28,7 @@ class UserSeeder(BaseSeeder):
         if not username or not email or not password:
             print("⚠️ No se encontraron todas las variables de entorno para crear el superusuario")
             username = "admin"
-            email = "admin@transporte.com"
+            email = "admin@inventario.com"
             password = "admin"
             print(f"⚠️ Usando valores predeterminados: {username}/{password}")
         

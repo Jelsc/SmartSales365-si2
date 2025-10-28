@@ -88,16 +88,15 @@ class ClienteRegisterView(APIView):
             context = {
                 'user': user,
                 'verification_code': code,
-                'site_name': 'Sistema de Transporte',
+                'site_name': 'Sistema de Inventario',
                 'expiration_minutes': 10,
             }
             
             # Renderizar templates
             html_message = render_to_string('account/email/mobile_verification.html', context)
             plain_message = render_to_string('account/email/mobile_verification.txt', context)
-            
-            subject = "Código de verificación - Sistema de Transporte"
-            
+
+            subject = "Código de verificación - Sistema de Inventario"
             send_mail(
                 subject=subject,
                 message=plain_message,
@@ -359,7 +358,7 @@ def resend_verification_code(request):
         context = {
             'user': user,
             'verification_code': verification_code,
-            'site_name': 'Sistema de Transporte',
+            'site_name': 'Sistema de Inventario',
             'expiration_minutes': 10,
         }
         
@@ -367,7 +366,7 @@ def resend_verification_code(request):
         html_message = render_to_string('account/email/mobile_verification.html', context)
         plain_message = render_to_string('account/email/mobile_verification.txt', context)
         
-        subject = "Código de verificación - Sistema de Transporte"
+        subject = "Código de verificación - Sistema de Inventario"
         
         send_mail(
             subject=subject,

@@ -1,4 +1,4 @@
-# transporte-si2
+# SmartSales365-si2
 
 Monorepo para **PostgreSQL + Django REST (backend)**, **React + Vite (frontend)** y **Flutter (mobile)**.
 En DEV usamos Docker para **db + backend + frontend**. Flutter se corre fuera de Docker (emulador/dispositivo).
@@ -8,7 +8,7 @@ En DEV usamos Docker para **db + backend + frontend**. Flutter se corre fuera de
 ## 📁 Estructura
 
 ```
-transporte-si2/
+SmartSales365-si2/
 ├─ backend/         # Django + DRF
 │  ├─ .env.example  # Variables de entorno para el backend (copia a .env)
 ├─ frontend/        # React + Vite + TS + Tailwind
@@ -163,11 +163,3 @@ docker compose exec backend bash
 - **Backend no conecta a DB en Docker**: confirma que en `compose` se fuerza `POSTGRES_HOST: db`.
 - **CORS** en dev: ya está abierto (`CORS_ALLOW_ALL_ORIGINS=True`). En prod **cerrarlo** y usar `CORS_ALLOWED_ORIGINS`.
 - **Vite no ve la API**: revisa `frontend/.env` → `VITE_API_URL=http://localhost:8000`.
-
----
-
-## 📦 Roadmap (VRP / ETA)
-
-* **VRP**: integrar `ortools` para ruteo (tareas offline con Celery + Redis).
-* **ETA**: baseline con `scikit-learn` / `xgboost` usando features de tráfico/histórico.
-"# transporte_si2" 

@@ -9,7 +9,7 @@ User = get_user_model()
 
 class PersonalSeeder(BaseSeeder):
     """
-    Crea datos de Personal para el sistema de transporte.
+    Crea datos de Personal para el sistema de inventario.
     """
     
     @classmethod
@@ -26,7 +26,7 @@ class PersonalSeeder(BaseSeeder):
                     "nombre": "María",
                     "apellido": "González",
                     "ci": "12345678",
-                    "email": "maria.gonzalez@transporte.com",
+                    "email": "maria.gonzalez@inventario.com",
                     "telefono": "555-0101",
                     "fecha_nacimiento": date(1985, 3, 15),
                     "codigo_empleado": "EMP001",
@@ -39,7 +39,7 @@ class PersonalSeeder(BaseSeeder):
                     "nombre": "Carlos",
                     "apellido": "Rodríguez",
                     "ci": "23456789",
-                    "email": "carlos.rodriguez@transporte.com",
+                    "email": "carlos.rodriguez@inventario.com",
                     "telefono": "555-0201",
                     "fecha_nacimiento": date(1988, 7, 22),
                     "codigo_empleado": "EMP002",
@@ -52,7 +52,7 @@ class PersonalSeeder(BaseSeeder):
                     "nombre": "Laura",
                     "apellido": "Martínez",
                     "ci": "34567890",
-                    "email": "laura.martinez@transporte.com",
+                    "email": "laura.martinez@inventario.com",
                     "telefono": "555-0301",
                     "fecha_nacimiento": date(1992, 11, 8),
                     "codigo_empleado": "EMP003",
@@ -65,7 +65,7 @@ class PersonalSeeder(BaseSeeder):
                     "nombre": "Roberto",
                     "apellido": "Silva",
                     "ci": "45678901",
-                    "email": "roberto.silva@transporte.com",
+                    "email": "roberto.silva@inventario.com",
                     "telefono": "555-0401",
                     "fecha_nacimiento": date(1980, 5, 12),
                     "codigo_empleado": "EMP004",
@@ -78,7 +78,7 @@ class PersonalSeeder(BaseSeeder):
                     "nombre": "Ana",
                     "apellido": "Fernández",
                     "ci": "56789012",
-                    "email": "ana.fernandez@transporte.com",
+                    "email": "ana.fernandez@inventario.com",
                     "telefono": "555-0501",
                     "fecha_nacimiento": date(1995, 12, 3),
                     "codigo_empleado": "EMP005",

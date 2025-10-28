@@ -21,7 +21,7 @@ class Migration(migrations.Migration):
                 ('fecha_hora', models.DateTimeField(default=django.utils.timezone.now)),
                 ('ip', models.GenericIPAddressField(blank=True, null=True)),
                 ('user_agent', models.TextField(blank=True)),
-                ('modulo', models.CharField(choices=[('USUARIOS', 'Usuarios'), ('ADMINISTRACION', 'Administracion'), ('TRANSPORTE', 'Transporte'), ('RESERVAS', 'Reservas'), ('PAGOS', 'Pagos'), ('GENERAL', 'General')], default='GENERAL', max_length=50)),
+                ('modulo', models.CharField(choices=[('USUARIOS', 'Usuarios'), ('ADMINISTRACION', 'Administracion'), ('RESERVAS', 'Reservas'), ('PAGOS', 'Pagos'), ('GENERAL', 'General')], default='GENERAL', max_length=50)),
             ],
         ),
     ]

@@ -6,7 +6,6 @@ class Bitacora(models.Model):
     MODULOS = [
         ('USUARIOS', 'Usuarios'),
         ('ADMINISTRACION', 'Administracion'),
-        ('TRANSPORTE', 'Transporte'),
         ('RESERVAS', 'Reservas'),
         ('PAGOS', 'Pagos'),
         ('GENERAL', 'General'),
