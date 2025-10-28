@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import TransporteIcon from "./app-logo";
+import SmartSalesIcon from "./app-logo";
 import { Menu, X } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { NavUserHeader } from "./nav-user-header";
@@ -20,8 +20,8 @@ const Navbar = () => {
   return (
     <header className="flex justify-between items-center px-4 md:px-10 py-2 md:py-3 shadow-md bg-white sticky top-0 z-50">
       <h1 className="text-sm font-bold text-blue-700 flex items-center gap-1 md:gap-2">
-        <TransporteIcon className="w-8 h-8 md:w-10 md:h-10" />
-        <span className="text-lg md:text-xl leading-none">MoviFleet</span>
+        <SmartSalesIcon className="w-5 h-5 md:w-7 md:h-7" />
+        <span className="text-lg md:text-xl leading-none">SmartSales365</span>
       </h1>
       {/* Desktop nav */}
       <nav className="space-x-0 hidden md:flex flex-row md:space-x-6 gap-2 md:gap-0">
@@ -109,8 +109,8 @@ const Navbar = () => {
           {/* Header */}
           <div className="flex items-center justify-between p-6 border-b border-gray-100">
             <div className="flex items-center gap-2">
-              <TransporteIcon className="w-6 h-6" />
-              <span className="text-lg font-bold text-blue-700">MoviFleet</span>
+              <SmartSalesIcon className="w-6 h-6" />
+              <span className="text-lg font-bold text-blue-700">SmartSales365</span>
             </div>
             <Button
               variant="ghost"

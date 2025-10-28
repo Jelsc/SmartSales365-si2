@@ -1,93 +1,18 @@
 import * as React from "react";
-const TransporteIcon = (props: React.SVGProps<SVGSVGElement>) => (
+const SmartSalesIcon = (props: React.SVGProps<SVGSVGElement>) => (
   <svg
     xmlns="http://www.w3.org/2000/svg"
-    width={316}
-    height={184}
-    viewBox="0 0 316 184"
-    fill="none"
+    viewBox="0 0 100 100"
+    width={100}
+    height={100}
     {...props}
   >
-    <title>{"MoviFleet \u2014 Wider Right (+16px)"}</title>
-    <g transform="translate(-84,-188)">
-      <g transform="translate(56,128)">
-        <rect
-          x={28}
-          y={60}
-          rx={16}
-          ry={16}
-          width={260}
-          height={150}
-          fill="#1447e6"
-        />
-        <rect
-          x={48}
-          y={84}
-          width={120}
-          height={50}
-          rx={8}
-          ry={8}
-          fill="#FFFFFF"
-          opacity={0.9}
-        />
-        <rect
-          x={178}
-          y={84}
-          width={80}
-          height={50}
-          rx={8}
-          ry={8}
-          fill="#FFFFFF"
-          opacity={0.9}
-        />
-        <rect
-          x={40}
-          y={152}
-          width={40}
-          height={20}
-          rx={6}
-          fill="#FFFFFF"
-          opacity={0.9}
-        />
-        <circle cx={100} cy={220} r={20} fill="#000000" />
-        <circle cx={240} cy={220} r={20} fill="#000000" />
-        <g transform="translate(168,118)">
-          <path
-            d="M0 30c0-14 12-26 26-26h90c10 0 20 5 26 13l24 31c5 6 8 13 8 21v38c0 10-8 18-18 18H24c-13 0-24-11-24-24V30z"
-            fill="#1447e6"
-          />
-          <rect
-            x={18}
-            y={20}
-            width={75}
-            height={36}
-            rx={6}
-            fill="#FFFFFF"
-            opacity={0.9}
-          />
-          <rect
-            x={98}
-            y={20}
-            width={40}
-            height={36}
-            rx={6}
-            fill="#FFFFFF"
-            opacity={0.9}
-          />
-          <rect
-            x={18}
-            y={76}
-            width={30}
-            height={12}
-            rx={6}
-            fill="#FFFFFF"
-            opacity={0.9}
-          />
-          <circle cx={56} cy={110} r={16} fill="#000000" />
-          <circle cx={144} cy={110} r={16} fill="#000000" />
-        </g>
-      </g>
-    </g>
+    <rect width={100} height={100} fill="transparent" />
+    <rect x={0} y={0} width={62} height={25} fill="#6cbaea" rx={5} />
+    <rect x={0} y={0} width={25} height={60} fill="#6cbaea" rx={5} />
+    <rect x={37} y={37} width={25} height={63} fill="#006ebb" rx={5} />
+    <rect x={0} y={70} width={25} height={30} fill="#24aee4" rx={5} />
+    <rect x={75} y={0} width={25} height={100} fill="#004883" rx={5} />
   </svg>
 );
-export default TransporteIcon;
+export default SmartSalesIcon;

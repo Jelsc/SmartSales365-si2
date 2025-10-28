@@ -11,7 +11,7 @@ import {
   LogIn,
   ArrowLeft,
 } from "lucide-react";
-import TransporteIcon from "@/components/app-logo";
+import SmartSalesIcon from "@/components/app-logo";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Link } from "react-router-dom";
@@ -106,8 +106,8 @@ export default function LoginPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center gap-3">
-              <TransporteIcon className="w-7 h-7" />
-              <span className="text-lg font-bold text-blue-700">MoviFleet</span>
+              <SmartSalesIcon className="w-7 h-7" />
+              <span className="text-lg font-bold text-blue-700">SmartSales365</span>
             </div>
             <div className="flex items-center gap-3">
               <Button

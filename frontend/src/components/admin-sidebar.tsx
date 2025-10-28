@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import TransporteIcon from "./app-logo";
+  import SmartSalesIcon from "./app-logo";
 import {
   BarChart3,
   Users,
@@ -189,9 +189,9 @@ export default function Sidebar({ collapsed, setCollapsed }: SidebarProps) {
               to="/admin/home"
               className="flex items-center gap-2 hover:opacity-80 transition-opacity"
             >
-              <TransporteIcon className="w-6 h-6" />
+              <SmartSalesIcon className="w-6 h-6" />
               <span className="text-base font-bold text-blue-700">
-                MoviFleet
+                SmartSales365
               </span>
             </Link>
           )}

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import TransporteIcon from "@/components/app-logo";
+import SmartSalesIcon from "@/components/app-logo";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import { useGoogleAuth } from "@/hooks/use-google-auth";
@@ -261,8 +261,8 @@ export default function RegisterPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center gap-3">
-              <TransporteIcon className="w-7 h-7" />
-              <span className="text-lg font-bold text-blue-700">MoviFleet</span>
+              <SmartSalesIcon className="w-7 h-7" />
+              <span className="text-lg font-bold text-blue-700">SmartSales365</span>
             </div>
             <div className="flex items-center space-x-4">
               <Button

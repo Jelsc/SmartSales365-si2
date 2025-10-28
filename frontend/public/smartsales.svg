@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100">
+  <!-- Fondo Transparente -->
+  <rect width="100" height="100" fill="transparent"/>
+
+  <!-- Primera barra azul clara -->
+  <rect x="0" y="0" width="62" height="25" fill="#6cbaea"  rx="5"/>
+
+  <rect x="0" y="0" width="25" height="60" fill="#6cbaea"  rx="5"/>
+  
+  <!-- Segunda barra azul intermedia -->
+  <rect x="37" y="37" width="25" height="63" fill="#006ebb" rx="5"/>
+
+  <!-- Tercera barra azul -->
+  <rect x="0" y="70" width="25" height="30" fill="#24aee4" rx="5"/>
+
+  <!-- Cuarta barra azul oscuro -->
+  <rect x="75" y="0" width="25" height="100" fill="#004883" rx="5"/>
+</svg>
