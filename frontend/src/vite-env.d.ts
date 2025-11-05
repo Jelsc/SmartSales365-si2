@@ -1,4 +1,5 @@
 /// <reference types="vite/client" />
+/// <reference types="vite-plugin-pwa/client" />
 
 // (opcional) tipa tus variables específicas:
 interface ImportMetaEnv {
