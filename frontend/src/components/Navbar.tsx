@@ -7,9 +7,9 @@ import { useAuth } from "@/context/AuthContext";
 import { NavUserHeader } from "./nav-user-header";
 
 const navbarOptions = [
-  { id: "servicios", name: "Servicios", href: "#servicios" },
-  { id: "rutas", name: "Rutas", href: "#rutas" },
-  { id: "choferes", name: "Choferes", href: "#choferes" },
+  { id: "productos", name: "Productos", href: "#productos" },
+  { id: "ofertas", name: "Ofertas", href: "#ofertas" },
+  { id: "servicio", name: "Servicio al Cliente", href: "#servicio" },
   { id: "contacto", name: "Contacto", href: "#contacto" },
 ];
 

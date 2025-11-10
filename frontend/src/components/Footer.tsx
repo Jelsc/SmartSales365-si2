@@ -41,39 +41,52 @@ export function Footer() {
             <h4 className="text-lg font-semibold text-blue-600">Enlaces Rápidos</h4>
             <ul className="space-y-2 text-sm">
               <li>
-                <a href="#inicio" className="text-black hover:text-blue-600 transition-colors">
-                  Inicio
+                <a href="#productos" className="text-black hover:text-blue-600 transition-colors">
+                  Productos
                 </a>
               </li>
               <li>
-                <a href="#servicios" className="text-black hover:text-blue-600 transition-colors">
-                  Servicios
+                <a href="#ofertas" className="text-black hover:text-blue-600 transition-colors">
+                  Ofertas
                 </a>
               </li>
               <li>
-                <a href="#rutas" className="text-black hover:text-blue-600 transition-colors">
-                  Rutas
+                <a href="#servicio" className="text-black hover:text-blue-600 transition-colors">
+                  Servicio al Cliente
                 </a>
               </li>
               <li>
-                <a href="#tarifas" className="text-black hover:text-blue-600 transition-colors">
-                  Tarifas
-                </a>
-              </li>
-              <li>
-                <a href="#nosotros" className="text-black hover:text-blue-600 transition-colors">
-                  Nosotros
+                <a href="#contacto" className="text-black hover:text-blue-600 transition-colors">
+                  Contacto
                 </a>
               </li>
             </ul>
           </div>
 
-          {/* Servicios */}
+          {/* Ayuda */}
           <div className="space-y-4">
-            <h4 className="text-lg font-semibold text-blue-600">Nuestros Servicios</h4>
+            <h4 className="text-lg font-semibold text-blue-600">Ayuda</h4>
             <ul className="space-y-2 text-sm">
-              <li className="text-black">Venta de Productos</li>
-              <li className="text-black">Todo tipo de ventas</li>
+              <li>
+                <a href="#preguntas" className="text-black hover:text-blue-600 transition-colors">
+                  Preguntas Frecuentes
+                </a>
+              </li>
+              <li>
+                <a href="#envios" className="text-black hover:text-blue-600 transition-colors">
+                  Envíos y Devoluciones
+                </a>
+              </li>
+              <li>
+                <a href="#metodos-pago" className="text-black hover:text-blue-600 transition-colors">
+                  Métodos de Pago
+                </a>
+              </li>
+              <li>
+                <a href="#garantia" className="text-black hover:text-blue-600 transition-colors">
+                  Garantía
+                </a>
+              </li>
             </ul>
           </div>
 
@@ -98,16 +111,16 @@ export function Footer() {
               </div>
               <div className="flex items-center space-x-3">
                 <Mail className="w-4 h-4 text-blue-600 flex-shrink-0" />
-                <a href="mailto:contacto@inventario.com" className="text-black hover:text-blue-600 transition-colors">
-                  contacto@inventario.com
+                <a href="mailto:contacto@smartsales365.com" className="text-black hover:text-blue-600 transition-colors">
+                  contacto@smartsales365.com
                 </a>
               </div>
               <div className="flex items-start space-x-3">
                 <Clock className="w-4 h-4 text-blue-600 mt-0.5 flex-shrink-0" />
                 <div>
                   <p className="text-black">
-                    Lun - Vie: 6:00 - 22:00<br />
-                    Sáb - Dom: 7:00 - 21:00
+                    Lun - Vie: 9:00 - 18:00<br />
+                    Proyecto SI-2
                   </p>
                 </div>
               </div>
