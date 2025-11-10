@@ -2,9 +2,10 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import SmartSalesIcon from "./app-logo";
-import { Menu, X } from "lucide-react";
+import { ShoppingCart, Menu, X } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { NavUserHeader } from "./nav-user-header";
+import { SearchBar } from "./SearchBar";
 
 const navbarOptions = [
   { id: "productos", name: "Productos", href: "#productos" },
@@ -17,77 +18,92 @@ const Navbar = () => {
   const [menuOpen, setMenuOpen] = useState(false);
   const [activeModule, setActiveModule] = useState<string | null>(null);
   const { isAuthenticated, isLoading } = useAuth();
+  
   return (
-    <header className="flex justify-between items-center px-4 md:px-10 py-2 md:py-3 shadow-md bg-white sticky top-0 z-50">
-      <h1 className="text-sm font-bold text-blue-700 flex items-center gap-1 md:gap-2">
-        <SmartSalesIcon className="w-5 h-5 md:w-7 md:h-7" />
-        <span className="text-lg md:text-xl leading-none">SmartSales365</span>
-      </h1>
-      {/* Desktop nav */}
-      <nav className="space-x-0 hidden md:flex flex-row md:space-x-6 gap-2 md:gap-0">
-        {navbarOptions.map((opt) => (
-          <a
-            key={opt.id}
-            href={opt.href}
-            className="hover:text-blue-600 px-2 py-1 md:px-0 md:py-0"
-          >
-            {opt.name}
-          </a>
-        ))}
-      </nav>
-      {/* Desktop buttons */}
-      <div className="hidden md:flex items-center space-x-4">
-        {isLoading ? (
-          <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
-        ) : isAuthenticated ? (
-          <NavUserHeader />
-        ) : (
-          <>
-            <Button
-              asChild
-              variant="outline"
-              className="px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:text-gray-900 hover:border-gray-400 transition-colors w-full md:w-auto"
-            >
-              <Link to="/login">Iniciar sesión</Link>
-            </Button>
-            <Button
-              asChild
-              variant="default"
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors w-full md:w-auto"
-            >
-              <Link to="/register">Registrarse</Link>
-            </Button>
-          </>
-        )}
-      </div>
-      {/* Mobile hamburger */}
-      <div className="md:hidden flex items-center">
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => setMenuOpen(!menuOpen)}
-          className="relative w-10 h-10 rounded-lg hover:bg-gray-100 transition-colors"
-          aria-label="Abrir menú de navegación"
-        >
-          <div className="relative w-5 h-5">
-            <span 
-              className={`absolute block h-0.5 w-5 bg-gray-700 transition-all duration-300 ease-in-out ${
-                menuOpen ? 'rotate-45 top-2' : 'top-1'
-              }`}
-            />
-            <span 
-              className={`absolute block h-0.5 w-5 bg-gray-700 transition-all duration-300 ease-in-out top-2 ${
-                menuOpen ? 'opacity-0' : 'opacity-100'
-              }`}
-            />
-            <span 
-              className={`absolute block h-0.5 w-5 bg-gray-700 transition-all duration-300 ease-in-out ${
-                menuOpen ? '-rotate-45 top-2' : 'top-3'
-              }`}
-            />
+    <header className="bg-white shadow-sm sticky top-0 z-50">
+      {/* Main navbar */}
+      <div className="max-w-7xl mx-auto px-4 py-3">
+        <div className="flex items-center justify-between gap-4">
+          {/* Center group: Logo + Search + Cart */}
+          <div className="hidden md:flex items-center gap-4 flex-1 justify-center">
+            {/* Logo */}
+            <Link to="/" className="flex items-center gap-2 flex-shrink-0">
+              <SmartSalesIcon className="w-10 h-10" />
+              <div className="hidden sm:block">
+                <div className="text-blue-600 font-bold text-xl leading-none">SmartSales</div>
+                <div className="text-blue-500 text-xs">365</div>
+              </div>
+            </Link>
+
+            <div className="flex-1 max-w-2xl">
+              <SearchBar />
+            </div>
+
+            <Link to="/cart" className="relative p-2 hover:bg-gray-100 rounded-lg transition-colors flex-shrink-0">
+              <ShoppingCart className="w-6 h-6 text-gray-700" />
+            </Link>
           </div>
-        </Button>
+
+          {/* Mobile: Logo only */}
+          <Link to="/" className="md:hidden flex items-center gap-2 flex-shrink-0">
+            <SmartSalesIcon className="w-10 h-10" />
+            <div className="block">
+              <div className="text-blue-600 font-bold text-xl leading-none">SmartSales</div>
+              <div className="text-blue-500 text-xs">365</div>
+            </div>
+          </Link>
+
+          {/* Right group: User actions - Desktop */}
+          <div className="hidden md:flex items-center gap-4 flex-shrink-0">
+            {isLoading ? (
+              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
+            ) : isAuthenticated ? (
+              <NavUserHeader />
+            ) : (
+              <>
+                <Button asChild variant="ghost">
+                  <Link to="/login">Ingresa</Link>
+                </Button>
+                <Button asChild variant="default" className="bg-blue-600 text-white hover:bg-blue-700">
+                  <Link to="/register">Crea tu cuenta</Link>
+                </Button>
+              </>
+            )}
+          </div>
+
+          {/* Mobile menu button */}
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setMenuOpen(!menuOpen)}
+            className="md:hidden flex-shrink-0"
+          >
+            <Menu className="w-6 h-6" />
+          </Button>
+        </div>
+
+        {/* Search bar - Mobile */}
+        <div className="md:hidden mt-3">
+          <SearchBar placeholder="Buscar productos..." />
+        </div>
       </div>
+
+      {/* Secondary nav - Categories */}
+      <nav className="hidden md:block bg-gray-50 border-t border-gray-200">
+        <div className="max-w-7xl mx-auto px-4">
+          <div className="flex items-center justify-center gap-6 py-2 text-sm overflow-x-auto">
+            {navbarOptions.map((opt) => (
+              <a
+                key={opt.id}
+                href={opt.href}
+                className="text-gray-700 hover:text-blue-600 whitespace-nowrap transition-colors font-medium"
+              >
+                {opt.name}
+              </a>
+            ))}
+          </div>
+        </div>
+      </nav>
       
       {/* Mobile menu overlay */}
       <div
@@ -124,7 +140,7 @@ const Navbar = () => {
           </div>
 
           {/* Navigation */}
-          <nav className="flex flex-col p-6 space-y-2">
+          <nav className="flex flex-col p-6 space-y-2 flex-1 overflow-y-auto">
             <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-4">
               Navegación
             </h3>
@@ -161,7 +177,21 @@ const Navbar = () => {
                 <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
               </div>
             ) : isAuthenticated ? (
-              <NavUserHeader />
+              <div className="space-y-3">
+                <NavUserHeader />
+                <Link
+                  to="/cart"
+                  className="flex items-center justify-between p-3 bg-blue-50 rounded-xl hover:bg-blue-100 transition-colors"
+                >
+                  <span className="font-medium text-blue-700">Mi Carrito</span>
+                  <div className="flex items-center gap-2">
+                    <ShoppingCart className="w-5 h-5 text-blue-600" />
+                    <span className="bg-red-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
+                      3
+                    </span>
+                  </div>
+                </Link>
+              </div>
             ) : (
               <div className="space-y-3">
                 <Button
@@ -182,6 +212,14 @@ const Navbar = () => {
                     Crear Cuenta
                   </Link>
                 </Button>
+                <Link
+                  to="/cart"
+                  className="flex items-center justify-center gap-2 p-3 border border-gray-300 rounded-xl hover:bg-gray-50 transition-colors"
+                  onClick={() => setMenuOpen(false)}
+                >
+                  <ShoppingCart className="w-5 h-5 text-gray-700" />
+                  <span className="font-medium text-gray-700">Ver Carrito</span>
+                </Link>
               </div>
             )}
           </div>
