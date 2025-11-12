@@ -39,6 +39,9 @@ urlpatterns = [
     # Productos: catálogo de productos e inventario
     path("api/", include("productos.urls")),
     
+    # Reportes: generación de reportes con voz
+    path("api/reportes/", include("reportes.urls")),
+    
     path("api/bitacora/", include("bitacora.urls")),
 
     # Auth social: endpoints para login social (navegador)

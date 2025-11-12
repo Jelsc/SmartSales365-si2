@@ -129,6 +129,7 @@ INSTALLED_APPS = [
     "conductores",
     "personal",
     "productos",  # 🆕 Módulo de productos
+    "reportes",   # 🆕 Módulo de reportes con voz
     # Requisito para allauth
     "django.contrib.sites",
     # Allauth (core + cuentas + social)
