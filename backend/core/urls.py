@@ -33,6 +33,11 @@ urlpatterns = [
     # Personal: gestión de personal de empresa
     path("api/personal/", include("personal.urls")),
     
+    # Notificaciones: sistema de push notifications con Firebase
+    path("api/notifications/", include("notifications.urls")),
+    
+    # Pagos: sistema de pagos con Stripe
+    path("api/payments/", include("payments.urls")),
     
     path("api/bitacora/", include("bitacora.urls")),
 
