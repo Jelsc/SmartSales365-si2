@@ -123,15 +123,12 @@ INSTALLED_APPS = [
     "rest_framework",
     "rest_framework.authtoken",
     "corsheaders",
-    "django_filters",  # Necesario para productos
+    "django_filters",  # Para filtros avanzados
     "core",
     "users",
     "conductores",
     "personal",
-    "notifications",  # Sistema de notificaciones push con Firebase
-    "payments",  # Sistema de pagos con Stripe
-    "productos",  # Sistema de gestión de productos
-    "reportes",  # Sistema de reportes dinámicos con reconocimiento de voz
+    "productos",  # 🆕 Módulo de productos
     # Requisito para allauth
     "django.contrib.sites",
     # Allauth (core + cuentas + social)
@@ -325,6 +322,11 @@ REST_FRAMEWORK = {
     ],
     "DEFAULT_PERMISSION_CLASSES": [
         "rest_framework.permissions.IsAuthenticated",
+    ],
+    "DEFAULT_PARSER_CLASSES": [
+        "rest_framework.parsers.JSONParser",
+        "rest_framework.parsers.FormParser",
+        "rest_framework.parsers.MultiPartParser",
     ],
     # --- NUEVO ---
     "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",

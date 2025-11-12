@@ -4,13 +4,16 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from django_filters.rest_framework import DjangoFilterBackend
 from django.db.models import Q
-
-from .models import Producto, Categoria
+from .models import Categoria, Producto, ProductoImagen, ProductoVariante
 from .serializers import (
-    ProductoSerializer,
+    CategoriaSerializer,
     ProductoListSerializer,
-    CategoriaSerializer
+    ProductoDetailSerializer,
+    ProductoCreateUpdateSerializer,
+    ProductoImagenSerializer,
+    ProductoVarianteSerializer
 )
+from .filters import ProductoFilter
 
 
 class CategoriaViewSet(viewsets.ModelViewSet):
@@ -19,145 +22,245 @@ class CategoriaViewSet(viewsets.ModelViewSet):
     """
     queryset = Categoria.objects.all()
     serializer_class = CategoriaSerializer
-    permission_classes = [AllowAny]  # Cambiar según necesidades
+    lookup_field = 'pk'  # Usar ID por defecto
     filter_backends = [filters.SearchFilter, filters.OrderingFilter]
     search_fields = ['nombre', 'descripcion']
-    ordering_fields = ['nombre', 'created_at']
-    ordering = ['nombre']
-
+    ordering_fields = ['nombre', 'orden', 'creado']
+    ordering = ['orden', 'nombre']
+    
     def get_queryset(self):
-        queryset = super().get_queryset()
-        # Filtrar solo activas para usuarios no autenticados
-        if not self.request.user.is_authenticated or not self.request.user.is_staff:
-            queryset = queryset.filter(activo=True)
-        return queryset
+        """Filtrar por activas solo en list, mostrar todas para admin"""
+        if self.action == 'list' and not self.request.user.is_staff:
+            return self.queryset.filter(activa=True)
+        return self.queryset
+    
+    def get_object(self):
+        """Permitir búsqueda por ID o slug"""
+        lookup_value = self.kwargs.get(self.lookup_field)
+        queryset = self.get_queryset()
+        
+        # Intentar buscar por ID primero
+        if lookup_value and lookup_value.isdigit():
+            try:
+                obj = queryset.get(pk=lookup_value)
+                self.check_object_permissions(self.request, obj)
+                return obj
+            except Categoria.DoesNotExist:
+                pass
+        
+        # Si no es numérico o no se encontró, buscar por slug
+        if lookup_value:
+            try:
+                obj = queryset.get(slug=lookup_value)
+                self.check_object_permissions(self.request, obj)
+                return obj
+            except Categoria.DoesNotExist:
+                pass
+        
+        from rest_framework.exceptions import NotFound
+        raise NotFound('Categoría no encontrada')
+    
+    def get_permissions(self):
+        """Permitir lectura pública, escritura solo autenticados"""
+        if self.action in ['list', 'retrieve']:
+            return [AllowAny()]
+        return [IsAuthenticated()]
+    
+    def create(self, request, *args, **kwargs):
+        """Crear categoría con logging para debugging"""
+        print("📝 CREATE - Request data:", request.data)
+        print("📝 CREATE - Request FILES:", request.FILES)
+        return super().create(request, *args, **kwargs)
+    
+    def update(self, request, *args, **kwargs):
+        """Actualizar categoría con logging para debugging"""
+        print("📝 UPDATE - Request data:", request.data)
+        print("📝 UPDATE - Request FILES:", request.FILES)
+        return super().update(request, *args, **kwargs)
+    
+    @action(detail=True, methods=['get'])
+    def productos(self, request, pk=None):
+        """Obtener productos de una categoría"""
+        categoria = self.get_object()
+        productos = Producto.objects.filter(
+            categoria=categoria, 
+            activo=True
+        )
+        
+        # Aplicar filtros adicionales
+        serializer = ProductoListSerializer(
+            productos, 
+            many=True, 
+            context={'request': request}
+        )
+        return Response(serializer.data)
 
 
 class ProductoViewSet(viewsets.ModelViewSet):
     """
     ViewSet para gestionar productos
-    
-    Endpoints:
-    - GET /api/productos/ - Listar productos
-    - POST /api/productos/ - Crear producto (admin)
-    - GET /api/productos/{id}/ - Ver detalle
-    - PUT /api/productos/{id}/ - Actualizar (admin)
-    - DELETE /api/productos/{id}/ - Eliminar (admin)
-    - GET /api/productos/destacados/ - Productos destacados
-    - GET /api/productos/buscar/?q=texto - Búsqueda
     """
-    queryset = Producto.objects.select_related('categoria').all()
-    permission_classes = [AllowAny]  # Permitir acceso público para ver productos
-    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
-    filterset_fields = ['categoria', 'activo', 'destacado']
-    search_fields = ['nombre', 'descripcion', 'categoria__nombre']
-    ordering_fields = ['nombre', 'precio', 'stock', 'created_at']
-    ordering = ['-destacado', '-created_at']
-
-    def get_serializer_class(self):
-        if self.action == 'list':
-            return ProductoListSerializer
-        return ProductoSerializer
-
-    def get_permissions(self):
-        """Solo admins pueden crear, actualizar y eliminar"""
-        if self.action in ['create', 'update', 'partial_update', 'destroy']:
-            return [IsAuthenticated()]
-        return [AllowAny()]
-
+    queryset = Producto.objects.all()  # Permitir acceso a todos los productos
+    lookup_field = 'pk'  # Usar pk por defecto para operaciones admin
+    filter_backends = [
+        DjangoFilterBackend, 
+        filters.SearchFilter, 
+        filters.OrderingFilter
+    ]
+    filterset_class = ProductoFilter
+    search_fields = ['nombre', 'descripcion', 'marca', 'modelo', 'sku']
+    ordering_fields = ['nombre', 'precio', 'creado', 'ventas', 'vistas']
+    ordering = ['-creado']
+    
     def get_queryset(self):
-        queryset = super().get_queryset()
+        """
+        Filtrar productos según el usuario:
+        - Usuarios autenticados (admin): ven todos los productos
+        - Usuarios públicos: solo ven productos activos
+        """
+        queryset = Producto.objects.all()
         
-        # Filtrar solo activos y con stock para clientes
-        if not self.request.user.is_authenticated or not self.request.user.is_staff:
+        # Si el usuario no está autenticado, filtrar solo productos activos
+        if not self.request.user.is_authenticated:
             queryset = queryset.filter(activo=True)
         
-        # Filtro por categoría via query param
-        categoria_id = self.request.query_params.get('categoria_id')
-        if categoria_id:
-            queryset = queryset.filter(categoria_id=categoria_id)
-        
-        # Filtro por disponibilidad
-        disponible = self.request.query_params.get('disponible')
-        if disponible == 'true':
-            queryset = queryset.filter(activo=True, stock__gt=0)
-        
         return queryset
-
+    
+    def get_object(self):
+        """
+        Obtener objeto por PK (para admin) o por slug (para frontend público)
+        Esto permite usar tanto /api/productos/13/ como /api/productos/mi-producto/
+        """
+        lookup_value = self.kwargs.get(self.lookup_field)
+        
+        # Si el valor es numérico, buscar por ID
+        if lookup_value and lookup_value.isdigit():
+            queryset = self.get_queryset()
+            try:
+                obj = queryset.get(pk=int(lookup_value))
+                self.check_object_permissions(self.request, obj)
+                return obj
+            except Producto.DoesNotExist:
+                from rest_framework.exceptions import NotFound
+                raise NotFound('Producto no encontrado')
+        
+        # Si no es numérico, buscar por slug
+        queryset = self.get_queryset()
+        try:
+            obj = queryset.get(slug=lookup_value)
+            self.check_object_permissions(self.request, obj)
+            return obj
+        except Producto.DoesNotExist:
+            from rest_framework.exceptions import NotFound
+            raise NotFound('Producto no encontrado')
+    
+    def get_serializer_class(self):
+        """Usar diferentes serializers según la acción"""
+        if self.action == 'list':
+            return ProductoListSerializer
+        elif self.action in ['create', 'update', 'partial_update']:
+            return ProductoCreateUpdateSerializer
+        return ProductoDetailSerializer
+    
+    def get_permissions(self):
+        """Permitir lectura pública, escritura solo autenticados"""
+        if self.action in ['list', 'retrieve']:
+            return [AllowAny()]
+        return [IsAuthenticated()]
+    
+    def retrieve(self, request, *args, **kwargs):
+        """Incrementar contador de vistas al ver detalle"""
+        instance = self.get_object()
+        instance.vistas += 1
+        instance.save(update_fields=['vistas'])
+        serializer = self.get_serializer(instance)
+        return Response(serializer.data)
+    
     @action(detail=False, methods=['get'])
     def destacados(self, request):
-        """
-        Obtener productos destacados
-        GET /api/productos/destacados/
-        """
-        productos = self.get_queryset().filter(destacado=True, activo=True, stock__gt=0)[:10]
-        serializer = self.get_serializer(productos, many=True)
+        """Obtener productos destacados"""
+        productos = self.queryset.filter(destacado=True)[:10]
+        serializer = ProductoListSerializer(
+            productos, 
+            many=True, 
+            context={'request': request}
+        )
         return Response(serializer.data)
-
+    
     @action(detail=False, methods=['get'])
-    def buscar(self, request):
-        """
-        Búsqueda avanzada de productos
-        GET /api/productos/buscar/?q=texto&min_precio=10&max_precio=100
-        """
-        query = request.query_params.get('q', '')
-        min_precio = request.query_params.get('min_precio')
-        max_precio = request.query_params.get('max_precio')
+    def ofertas(self, request):
+        """Obtener productos en oferta"""
+        productos = self.queryset.filter(en_oferta=True)
+        serializer = ProductoListSerializer(
+            productos, 
+            many=True, 
+            context={'request': request}
+        )
+        return Response(serializer.data)
+    
+    @action(detail=False, methods=['get'])
+    def mas_vendidos(self, request):
+        """Obtener productos más vendidos"""
+        productos = self.queryset.order_by('-ventas')[:10]
+        serializer = ProductoListSerializer(
+            productos, 
+            many=True, 
+            context={'request': request}
+        )
+        return Response(serializer.data)
+    
+    @action(detail=True, methods=['get'])
+    def verificar_stock(self, request, slug=None):
+        """Verificar disponibilidad de stock"""
+        producto = self.get_object()
+        cantidad = int(request.query_params.get('cantidad', 1))
         
-        queryset = self.get_queryset()
-        
-        if query:
-            queryset = queryset.filter(
-                Q(nombre__icontains=query) |
-                Q(descripcion__icontains=query) |
-                Q(categoria__nombre__icontains=query)
-            )
-        
-        if min_precio:
-            queryset = queryset.filter(precio__gte=min_precio)
-        
-        if max_precio:
-            queryset = queryset.filter(precio__lte=max_precio)
-        
-        # Paginación
-        page = self.paginate_queryset(queryset)
-        if page is not None:
-            serializer = self.get_serializer(page, many=True)
-            return self.get_paginated_response(serializer.data)
-        
-        serializer = self.get_serializer(queryset, many=True)
+        disponible = producto.stock >= cantidad
+        return Response({
+            'disponible': disponible,
+            'stock_actual': producto.stock,
+            'cantidad_solicitada': cantidad
+        })
+
+
+class ProductoImagenViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet para gestionar imágenes de productos
+    """
+    queryset = ProductoImagen.objects.all()
+    serializer_class = ProductoImagenSerializer
+    permission_classes = [IsAuthenticated]
+    
+    def get_queryset(self):
+        """Filtrar por producto si se proporciona"""
+        queryset = self.queryset
+        producto_id = self.request.query_params.get('producto')
+        if producto_id:
+            queryset = queryset.filter(producto_id=producto_id)
+        return queryset.order_by('orden', '-es_principal')
+    
+    @action(detail=True, methods=['post'])
+    def marcar_principal(self, request, pk=None):
+        """Marcar una imagen como principal"""
+        imagen = self.get_object()
+        imagen.es_principal = True
+        imagen.save()
+        serializer = self.get_serializer(imagen)
         return Response(serializer.data)
 
-    @action(detail=True, methods=['post'])
-    def reducir_stock(self, request, pk=None):
-        """
-        Reducir stock de un producto
-        POST /api/productos/{id}/reducir_stock/
-        Body: {"cantidad": 5}
-        """
-        producto = self.get_object()
-        cantidad = request.data.get('cantidad', 0)
-        
-        try:
-            cantidad = int(cantidad)
-        except ValueError:
-            return Response(
-                {'error': 'La cantidad debe ser un número'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-        
-        if cantidad <= 0:
-            return Response(
-                {'error': 'La cantidad debe ser mayor a 0'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-        
-        if producto.reducir_stock(cantidad):
-            serializer = self.get_serializer(producto)
-            return Response(serializer.data)
-        else:
-            return Response(
-                {'error': 'Stock insuficiente'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
 
+class ProductoVarianteViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet para gestionar variantes de productos
+    """
+    queryset = ProductoVariante.objects.filter(activa=True)
+    serializer_class = ProductoVarianteSerializer
+    permission_classes = [IsAuthenticated]
+    
+    def get_queryset(self):
+        """Filtrar por producto si se proporciona"""
+        queryset = self.queryset
+        producto_id = self.request.query_params.get('producto')
+        if producto_id:
+            queryset = queryset.filter(producto_id=producto_id)
+        return queryset

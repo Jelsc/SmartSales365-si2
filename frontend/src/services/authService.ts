@@ -92,9 +92,13 @@ export async function apiRequest<T>(
 ): Promise<ApiResponse<T>> {
   const url = `${API_BASE_URL}${endpoint}`;
 
-  const defaultHeaders: HeadersInit = {
-    "Content-Type": "application/json",
-  };
+  const defaultHeaders: HeadersInit = {};
+
+  // Solo agregar Content-Type si no es FormData
+  // FormData necesita que el navegador establezca el Content-Type automáticamente con el boundary
+  if (!(options.body instanceof FormData)) {
+    defaultHeaders["Content-Type"] = "application/json";
+  }
 
   // Agregar token de autenticación si existe
   const token = localStorage.getItem("access_token");
