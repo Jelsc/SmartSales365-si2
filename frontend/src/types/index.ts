@@ -22,3 +22,8 @@ export * from './conductor';
 // TIPOS DE BITÁCORA
 // ========================================
 export * from './bitacora';
+
+// ========================================
+// TIPOS DE PRODUCTOS
+// ========================================
+export * from './producto';

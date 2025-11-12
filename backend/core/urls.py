@@ -17,6 +17,9 @@ Including another URLconf
 
 from django.contrib import admin
 from django.urls import path, include
+from django.conf import settings
+from django.conf.urls.static import static
+
 # Endpoints principales del sistema
 urlpatterns = [
     # Panel de administración de Django
@@ -33,6 +36,8 @@ urlpatterns = [
     # Personal: gestión de personal de empresa
     path("api/personal/", include("personal.urls")),
     
+    # Productos: catálogo de productos e inventario
+    path("api/", include("productos.urls")),
     
     path("api/bitacora/", include("bitacora.urls")),
 
@@ -41,3 +46,7 @@ urlpatterns = [
     
     
 ]
+
+# Servir archivos media en desarrollo
+if settings.DEBUG:
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

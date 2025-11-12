@@ -1,20 +1,20 @@
 
 import { HeroSection } from "./components/HeroSection";
+import { FeaturesSection } from "./components/FeaturesSection";
 import { CategorySection } from "./components/CategorySection";
-import { FeaturedProducts } from "./components/FeaturedProducts";
 import { OffersSection } from "./components/OffersSection";
-import { ServicesSection } from "./components/ServicesSection";
-import { NewsletterSection } from "./components/NewsletterSection";
+import { SupportSection } from "./components/SupportSection";
+import { ContactSection } from "./components/ContactSection";
 
 const HomePage: React.FC = () => {
   return (
     <div className="min-h-screen bg-white">
       <HeroSection />
+      <FeaturesSection />
       <CategorySection />
-      <FeaturedProducts />
       <OffersSection />
-      <ServicesSection />
-      <NewsletterSection />
+      <SupportSection />
+      <ContactSection />
     </div>
   );
 };

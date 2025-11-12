@@ -14,6 +14,11 @@ import ConductoresPage from "@/pages/admin/conductores/driver.page";
 import UsuariosPage from "@/pages/admin/users/users.page";
 import AccountSettingsPage from "@/pages/auth/account-settings.page";
 import ClientLayout from "@/app/layout/client-layout";
+import ProductosPage from "@/pages/client/productos/productos.page";
+import ProductoDetallePage from "@/pages/client/productos/producto-detalle.page";
+import ProductosAdminPage from "@/pages/admin/productos/productos.page";
+import { CategoriasAdminPage } from "@/pages/admin/categorias/categorias.page";
+import OfertasPage from "@/pages/client/productos/ofertas.page";
 
 export default function AppRouter() {
   return (
@@ -22,6 +27,9 @@ export default function AppRouter() {
         {/* Rutas del cliente con layout */}
         <Route path="/" element={<ClientLayout />}>
           <Route index element={<HomePage />} />
+          <Route path="productos" element={<ProductosPage />} />
+          <Route path="productos/:id" element={<ProductoDetallePage />} />
+          <Route path="ofertas" element={<OfertasPage />} />
         </Route>
         
         {/* Rutas de autenticación sin layout */}
@@ -120,6 +128,30 @@ export default function AppRouter() {
           element={
             <ProtectedRoute requireAdmin={true}>
               <div>Ventas (por implementar)</div>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/productos"
+          element={
+            <ProtectedRoute requireAdmin={true}>
+              <ProductosAdminPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/categorias"
+          element={
+            <ProtectedRoute requireAdmin={true}>
+              <CategoriasAdminPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/pedidos"
+          element={
+            <ProtectedRoute requireAdmin={true}>
+              <div>Pedidos (por implementar)</div>
             </ProtectedRoute>
           }
         />

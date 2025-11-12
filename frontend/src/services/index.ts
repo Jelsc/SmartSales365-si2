@@ -47,3 +47,8 @@ export * from './bitacoraService';
 // SERVICIOS DE USUARIOS (LEGACY)
 // ========================================
 export * from './usuariosService';
+
+// ========================================
+// SERVICIOS DE PRODUCTOS
+// ========================================
+export * from './productosService';

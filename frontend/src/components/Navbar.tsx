@@ -8,8 +8,9 @@ import { NavUserHeader } from "./nav-user-header";
 import { SearchBar } from "./SearchBar";
 
 const navbarOptions = [
-  { id: "productos", name: "Productos", href: "#productos" },
-  { id: "ofertas", name: "Ofertas", href: "#ofertas" },
+  { id: "inicio", name: "Inicio", href: "/" },
+  { id: "productos", name: "Productos", href: "/productos" },
+  { id: "ofertas", name: "Ofertas", href: "/ofertas" },
   { id: "servicio", name: "Servicio al Cliente", href: "#servicio" },
   { id: "contacto", name: "Contacto", href: "#contacto" },
 ];
@@ -93,13 +94,23 @@ const Navbar = () => {
         <div className="max-w-7xl mx-auto px-4">
           <div className="flex items-center justify-center gap-6 py-2 text-sm overflow-x-auto">
             {navbarOptions.map((opt) => (
-              <a
-                key={opt.id}
-                href={opt.href}
-                className="text-gray-700 hover:text-blue-600 whitespace-nowrap transition-colors font-medium"
-              >
-                {opt.name}
-              </a>
+              opt.href.startsWith('/') ? (
+                <Link
+                  key={opt.id}
+                  to={opt.href}
+                  className="text-gray-700 hover:text-blue-600 whitespace-nowrap transition-colors font-medium"
+                >
+                  {opt.name}
+                </Link>
+              ) : (
+                <a
+                  key={opt.id}
+                  href={opt.href}
+                  className="text-gray-700 hover:text-blue-600 whitespace-nowrap transition-colors font-medium"
+                >
+                  {opt.name}
+                </a>
+              )
             ))}
           </div>
         </div>
@@ -145,13 +156,37 @@ const Navbar = () => {
               Navegación
             </h3>
             {navbarOptions.map((opt, index) => (
-              <button
-                key={opt.id}
-                onClick={() => {
-                  setActiveModule(opt.id);
-                  setMenuOpen(false);
-                  window.location.href = opt.href;
-                }}
+              opt.href.startsWith('/') ? (
+                <Link
+                  key={opt.id}
+                  to={opt.href}
+                  onClick={() => {
+                    setActiveModule(opt.id);
+                    setMenuOpen(false);
+                  }}
+                  className={`group flex items-center px-4 py-3 text-base rounded-xl text-left transition-all duration-200 ${
+                    activeModule === opt.id
+                      ? "bg-blue-50 text-blue-700 border border-blue-200"
+                      : "text-gray-700 hover:bg-gray-50 hover:text-gray-900"
+                  }`}
+                  style={{ 
+                    animationDelay: `${index * 50}ms`,
+                    animation: menuOpen ? 'slideInRight 0.3s ease-out forwards' : 'none'
+                  }}
+                >
+                  <span className="font-medium">{opt.name}</span>
+                  <div className={`ml-auto w-2 h-2 rounded-full transition-colors ${
+                    activeModule === opt.id ? 'bg-blue-600' : 'bg-transparent'
+                  }`} />
+                </Link>
+              ) : (
+                <button
+                  key={opt.id}
+                  onClick={() => {
+                    setActiveModule(opt.id);
+                    setMenuOpen(false);
+                    window.location.href = opt.href;
+                  }}
                 className={`group flex items-center px-4 py-3 text-base rounded-xl text-left transition-all duration-200 ${
                   activeModule === opt.id
                     ? "bg-blue-50 text-blue-700 border border-blue-200"
@@ -167,6 +202,7 @@ const Navbar = () => {
                   activeModule === opt.id ? 'bg-blue-600' : 'bg-transparent'
                 }`} />
               </button>
+              )
             ))}
           </nav>
 
