@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import type { Producto, Categoria, ProductoFilters } from '@/types';
 import { productosService, categoriasService } from '@/services';
+import { useCart } from '@/context/CartContext';
 import { ProductCard } from './components/ProductCard';
 import { ProductFilters as FiltersComponent } from './components/ProductFilters';
 import { Button } from '@/components/ui/button';
@@ -9,6 +10,7 @@ import { Loader2, Star, Package } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 
 const ProductosPage: React.FC = () => {
+  const { agregarProducto } = useCart();
   const [productos, setProductos] = useState<Producto[]>([]);
   const [destacados, setDestacados] = useState<Producto[]>([]);
   const [categorias, setCategorias] = useState<Categoria[]>([]);
@@ -89,10 +91,10 @@ const ProductosPage: React.FC = () => {
     });
   };
 
-  const handleAddToCart = (producto: Producto) => {
-    // TODO: Implementar carrito de compras
+  const handleAddToCart = async (producto: Producto) => {
+    await agregarProducto(producto.id, 1);
     toast.success(`${producto.nombre} agregado al carrito`);
-    console.log('Agregar al carrito:', producto);
+    // El toast ya se muestra en el CartContext
   };
 
   const handlePageChange = (newPage: number) => {

@@ -129,6 +129,9 @@ INSTALLED_APPS = [
     "conductores",
     "personal",
     "productos",  # 🆕 Módulo de productos
+    "carrito",  # 🆕 Módulo de carrito de compras
+    "ventas",  # 🆕 Módulo de pedidos y ventas
+    "pagos",  # 🆕 Módulo de pagos con Stripe
     # Requisito para allauth
     "django.contrib.sites",
     # Allauth (core + cuentas + social)
@@ -386,3 +389,9 @@ GOOGLE_OAUTH2_CLIENT_SECRET = os.getenv("GOOGLE_OAUTH2_CLIENT_SECRET", "")
 
 # Configuración de sitios para allauth
 SITE_ID = int(os.getenv("SITE_ID", "1"))
+
+# Configuración de Stripe
+STRIPE_PUBLIC_KEY = os.getenv("STRIPE_PUBLIC_KEY", "")
+STRIPE_SECRET_KEY = os.getenv("STRIPE_SECRET_KEY", "")
+STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET", "")
+

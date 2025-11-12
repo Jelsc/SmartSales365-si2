@@ -52,3 +52,18 @@ export * from './usuariosService';
 // SERVICIOS DE PRODUCTOS
 // ========================================
 export * from './productosService';
+
+// ========================================
+// SERVICIOS DE VENTAS Y PEDIDOS
+// ========================================
+export * from './ventasService';
+
+// ========================================
+// SERVICIOS DE CARRITO
+// ========================================
+export * from './carritoService';
+
+// ========================================
+// SERVICIOS DE FAVORITOS
+// ========================================
+export * from './favoritosService';

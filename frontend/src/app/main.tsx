@@ -5,6 +5,7 @@ import AppRouter from "./router";
 import { Toaster } from "react-hot-toast";
 import { UserProvider } from "../context/UserContext";
 import { AuthProvider } from "../context/AuthContext";
+import { CartProvider } from "../context/CartContext";
 import { PWAUpdatePrompt } from "../components/pwa-update-prompt";
 import { PWAInstallButton } from "../components/pwa-install-button";
 
@@ -15,10 +16,12 @@ createRoot(root).render(
   <StrictMode>
     <AuthProvider>
       <UserProvider>
-        <AppRouter />
-        <Toaster position="top-right" />
-        <PWAUpdatePrompt />
-        <PWAInstallButton />
+        <CartProvider>
+          <AppRouter />
+          <Toaster position="top-right" />
+          <PWAUpdatePrompt />
+          <PWAInstallButton />
+        </CartProvider>
       </UserProvider>
     </AuthProvider>
   </StrictMode>

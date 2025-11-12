@@ -39,6 +39,15 @@ urlpatterns = [
     # Productos: catálogo de productos e inventario
     path("api/", include("productos.urls")),
     
+    # Carrito: gestión del carrito de compras
+    path("api/carrito/", include("carrito.urls")),
+    
+    # Ventas: gestión de pedidos y órdenes
+    path("api/ventas/pedidos/", include("ventas.urls")),
+    
+    # Pagos: procesamiento de pagos con Stripe
+    path("api/pagos/", include("pagos.urls")),
+    
     path("api/bitacora/", include("bitacora.urls")),
 
     # Auth social: endpoints para login social (navegador)

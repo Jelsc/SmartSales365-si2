@@ -2,6 +2,9 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import type { Producto, ProductoVariante } from '@/types';
 import { productosService } from '@/services';
+import { useCart } from '@/context/CartContext';
+import { getSiteUrl, shareContent } from '@/lib/utils-helpers';
+import { toggleFavorito, isFavorito } from '@/services/favoritosService';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -18,11 +21,13 @@ import { toast } from 'react-hot-toast';
 const ProductoDetallePage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { agregarProducto } = useCart();
   const [producto, setProducto] = useState<Producto | null>(null);
   const [loading, setLoading] = useState(true);
   const [imagenSeleccionada, setImagenSeleccionada] = useState<number>(0);
   const [varianteSeleccionada, setVarianteSeleccionada] = useState<ProductoVariante | null>(null);
   const [cantidad, setCantidad] = useState<number>(1);
+  const [esFavorito, setEsFavorito] = useState<boolean>(false);
 
   useEffect(() => {
     const loadProducto = async () => {
@@ -32,6 +37,9 @@ const ProductoDetallePage: React.FC = () => {
       try {
         const data = await productosService.getById(parseInt(id));
         setProducto(data);
+        
+        // Verificar si está en favoritos
+        setEsFavorito(isFavorito(data.id));
         
         // Seleccionar primera variante si existe
         if (data.variantes && data.variantes.length > 0) {
@@ -72,16 +80,62 @@ const ProductoDetallePage: React.FC = () => {
     return producto?.stock || 0;
   };
 
-  const handleAddToCart = () => {
+  const handleAddToCart = async () => {
     if (!producto) return;
     
-    // TODO: Implementar carrito de compras
-    toast.success(`${cantidad} ${producto.nombre} agregado(s) al carrito`);
-    console.log({
-      producto,
-      variante: varianteSeleccionada,
-      cantidad,
+    try {
+      // Enviar variante_id si hay una seleccionada
+      await agregarProducto(
+        producto.id, 
+        cantidad,
+        varianteSeleccionada?.id
+      );
+      
+      // Toast de éxito
+      toast.success(
+        `${cantidad} ${cantidad === 1 ? 'producto agregado' : 'productos agregados'} al carrito 🛒`,
+        {
+          duration: 3000,
+          icon: '✅',
+        }
+      );
+    } catch (error) {
+      toast.error('Error al agregar al carrito');
+    }
+  };
+
+  const handleToggleFavorito = () => {
+    if (!producto) return;
+    
+    const isNowFavorite = toggleFavorito(producto.id);
+    setEsFavorito(isNowFavorite);
+    
+    if (isNowFavorite) {
+      toast.success('Producto agregado a favoritos');
+    } else {
+      toast.success('Producto eliminado de favoritos');
+    }
+  };
+
+  const handleShare = async () => {
+    if (!producto) return;
+    
+    const siteUrl = getSiteUrl();
+    const productUrl = `${siteUrl}/productos/${producto.id}`;
+    
+    const result = await shareContent({
+      title: producto.nombre,
+      text: `Mira este producto: ${producto.nombre}`,
+      url: productUrl,
     });
+    
+    if (result === 'shared') {
+      toast.success('Producto compartido exitosamente');
+    } else if (result === 'copied') {
+      toast.success('¡Enlace copiado al portapapeles!');
+    } else {
+      toast.error('No se pudo compartir el producto');
+    }
   };
 
   if (loading) {
@@ -102,6 +156,9 @@ const ProductoDetallePage: React.FC = () => {
 
   const stockDisponible = getStockDisponible();
   const tieneStock = stockDisponible > 0;
+  
+  // Obtener imagen usando la misma lógica que ProductCard
+  const imagenPrincipal = producto.imagen || producto.imagenes?.find(img => img.es_principal)?.imagen || producto.imagenes?.[0]?.imagen;
   const imagenes = producto.imagenes.length > 0 ? producto.imagenes : [];
 
   return (
@@ -124,17 +181,28 @@ const ProductoDetallePage: React.FC = () => {
               <CardContent className="p-4">
                 {/* Imagen principal */}
                 <div className="aspect-square bg-gray-100 rounded-lg overflow-hidden mb-4">
-                  {imagenes.length > 0 && imagenes[imagenSeleccionada] ? (
+                  {imagenPrincipal || (imagenes.length > 0 && imagenes[imagenSeleccionada]) ? (
                     <img
-                      src={imagenes[imagenSeleccionada]?.imagen ?? ''}
+                      src={(imagenes.length > 0 && imagenes[imagenSeleccionada]?.imagen) || imagenPrincipal || ''}
                       alt={imagenes[imagenSeleccionada]?.alt_text ?? producto.nombre}
                       className="w-full h-full object-cover"
+                      onError={(e) => {
+                        // Si la imagen falla, mostrar placeholder
+                        e.currentTarget.style.display = 'none';
+                        const fallback = e.currentTarget.nextElementSibling as HTMLElement;
+                        if (fallback) fallback.style.display = 'flex';
+                      }}
                     />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center text-gray-400">
-                      Sin imagen disponible
+                  ) : null}
+                  <div 
+                    className="w-full h-full flex items-center justify-center text-gray-400"
+                    style={{ display: (imagenPrincipal || (imagenes.length > 0 && imagenes[imagenSeleccionada])) ? 'none' : 'flex' }}
+                  >
+                    <div className="text-center">
+                      <Package className="w-16 h-16 mx-auto mb-2 text-gray-300" />
+                      <p className="text-sm">Sin imagen disponible</p>
                     </div>
-                  )}
+                  </div>
                 </div>
 
                 {/* Miniaturas */}
@@ -150,11 +218,24 @@ const ProductoDetallePage: React.FC = () => {
                             : 'border-transparent hover:border-gray-300'
                         }`}
                       >
-                        <img
-                          src={imagen.imagen}
-                          alt={`Miniatura ${index + 1}`}
-                          className="w-full h-full object-cover"
-                        />
+                        {imagen.imagen ? (
+                          <img
+                            src={imagen.imagen}
+                            alt={`Miniatura ${index + 1}`}
+                            className="w-full h-full object-cover"
+                            onError={(e) => {
+                              e.currentTarget.style.display = 'none';
+                              const fallback = e.currentTarget.nextElementSibling as HTMLElement;
+                              if (fallback) fallback.style.display = 'flex';
+                            }}
+                          />
+                        ) : null}
+                        <div 
+                          className="w-full h-full flex items-center justify-center bg-gray-100"
+                          style={{ display: imagen.imagen ? 'none' : 'flex' }}
+                        >
+                          <Package className="w-6 h-6 text-gray-300" />
+                        </div>
                       </button>
                     ))}
                   </div>
@@ -201,7 +282,7 @@ const ProductoDetallePage: React.FC = () => {
                   <span className="text-lg text-gray-400 line-through">
                     {formatPrecio(producto.precio)}
                   </span>
-                  <Badge className="bg-red-500">
+                  <Badge className="bg-red-500 text-white">
                     -{Math.round(((producto.precio - producto.precio_oferta) / producto.precio) * 100)}% OFF
                   </Badge>
                 </div>
@@ -274,11 +355,17 @@ const ProductoDetallePage: React.FC = () => {
               </Button>
 
               <div className="grid grid-cols-2 gap-3">
-                <Button variant="outline">
-                  <Heart className="h-4 w-4 mr-2" />
-                  Favoritos
+                <Button 
+                  variant="outline"
+                  onClick={handleToggleFavorito}
+                  className={esFavorito ? 'bg-red-50 border-red-200 hover:bg-red-100' : ''}
+                >
+                  <Heart 
+                    className={`h-4 w-4 mr-2 ${esFavorito ? 'fill-red-500 text-red-500' : ''}`}
+                  />
+                  {esFavorito ? 'En favoritos' : 'Favoritos'}
                 </Button>
-                <Button variant="outline">
+                <Button variant="outline" onClick={handleShare}>
                   <Share2 className="h-4 w-4 mr-2" />
                   Compartir
                 </Button>

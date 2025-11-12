@@ -5,17 +5,22 @@ from .models import Categoria, Producto, ProductoImagen, ProductoVariante
 class CategoriaSerializer(serializers.ModelSerializer):
     """Serializer para categorías"""
     total_productos = serializers.SerializerMethodField()
+    productos_count = serializers.SerializerMethodField()
     
     class Meta:
         model = Categoria
         fields = [
             'id', 'nombre', 'slug', 'descripcion', 'imagen', 
-            'activa', 'orden', 'total_productos', 'creado', 'actualizado'
+            'activa', 'orden', 'total_productos', 'productos_count', 'creado', 'actualizado'
         ]
         read_only_fields = ['slug', 'creado', 'actualizado']
     
     def get_total_productos(self, obj):
         """Contador de productos activos en la categoría"""
+        return obj.productos.filter(activo=True).count()
+    
+    def get_productos_count(self, obj):
+        """Contador de productos activos en la categoría (alias para compatibilidad)"""
         return obj.productos.filter(activo=True).count()
     
     def to_representation(self, instance):
