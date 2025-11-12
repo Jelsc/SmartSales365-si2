@@ -1,7 +1,16 @@
 import 'package:flutter/material.dart';
+import '../../../services/cart_provider.dart';
+import '../../../services/payment_service.dart';
+import '../../../services/auth_service.dart';
+import '../../../utils/ip_detection.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+import 'package:fluttertoast/fluttertoast.dart';
 
 class ProductsTab extends StatefulWidget {
-  const ProductsTab({super.key});
+  final CartProvider cartProvider;
+
+  const ProductsTab({super.key, required this.cartProvider});
 
   @override
   State<ProductsTab> createState() => _ProductsTabState();

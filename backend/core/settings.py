@@ -123,12 +123,15 @@ INSTALLED_APPS = [
     "rest_framework",
     "rest_framework.authtoken",
     "corsheaders",
+    "django_filters",  # Necesario para productos
     "core",
     "users",
     "conductores",
     "personal",
     "notifications",  # Sistema de notificaciones push con Firebase
     "payments",  # Sistema de pagos con Stripe
+    "productos",  # Sistema de gestión de productos
+    "reportes",  # Sistema de reportes dinámicos con reconocimiento de voz
     # Requisito para allauth
     "django.contrib.sites",
     # Allauth (core + cuentas + social)

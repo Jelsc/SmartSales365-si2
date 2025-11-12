@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
+import '../../../services/cart_provider.dart';
 
 class HomeTab extends StatelessWidget {
-  const HomeTab({super.key});
+  final CartProvider cartProvider;
+
+  const HomeTab({super.key, required this.cartProvider});
 
   @override
   Widget build(BuildContext context) {

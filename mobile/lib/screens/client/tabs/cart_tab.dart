@@ -1,42 +1,25 @@
 import 'package:flutter/material.dart';
+import '../../../services/cart_provider.dart';
+import '../../../services/payment_service.dart';
 
 class CartTab extends StatefulWidget {
-  const CartTab({super.key});
+  final CartProvider cartProvider;
+
+  const CartTab({super.key, required this.cartProvider});
 
   @override
   State<CartTab> createState() => _CartTabState();
 }
 
 class _CartTabState extends State<CartTab> {
-  final List<Map<String, dynamic>> _cartItems = [
-    {
-      'name': 'Laptop HP Pavilion',
-      'price': 4500.0,
-      'quantity': 1,
-      'icon': Icons.laptop,
-    },
-    {
-      'name': 'Audífonos Sony WH',
-      'price': 350.0,
-      'quantity': 2,
-      'icon': Icons.headphones,
-    },
-    {'name': 'Mouse Gamer', 'price': 280.0, 'quantity': 1, 'icon': Icons.mouse},
-  ];
-
-  double get _subtotal {
-    return _cartItems.fold(
-      0,
-      (sum, item) => sum + (item['price'] * item['quantity']),
-    );
-  }
-
-  double get _shipping => 30.0;
-  double get _total => _subtotal + _shipping;
+  final PaymentService _paymentService = PaymentService();
+  bool _isProcessing = false;
 
   @override
   Widget build(BuildContext context) {
-    if (_cartItems.isEmpty) {
+    final cart = widget.cartProvider;
+
+    if (cart.itemCount == 0) {
       return _buildEmptyCart();
     }
 
@@ -45,13 +28,14 @@ class _CartTabState extends State<CartTab> {
         Expanded(
           child: ListView.builder(
             padding: const EdgeInsets.all(16),
-            itemCount: _cartItems.length,
+            itemCount: cart.items.length,
             itemBuilder: (context, index) {
-              return _buildCartItem(_cartItems[index], index);
+              final item = cart.items[index];
+              return _buildCartItem(item);
             },
           ),
         ),
-        _buildCheckoutSection(),
+        _buildCheckoutSection(cart),
       ],
     );
   }
@@ -83,16 +67,28 @@ class _CartTabState extends State<CartTab> {
           const SizedBox(height: 32),
           ElevatedButton(
             onPressed: () {
-              // Cambiar a tab de productos
+              // Cambiar a tab de productos (índice 1)
+              DefaultTabController.of(context).animateTo(1);
             },
-            child: const Text('Explorar Productos'),
+            style: ElevatedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+              backgroundColor: Colors.blue,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+            child: const Text(
+              'Explorar Productos',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+            ),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildCartItem(Map<String, dynamic> item, int index) {
+  Widget _buildCartItem(CartItem item) {
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       elevation: 2,
@@ -108,12 +104,18 @@ class _CartTabState extends State<CartTab> {
               decoration: BoxDecoration(
                 color: Colors.grey.shade100,
                 borderRadius: BorderRadius.circular(12),
+                image:
+                    item.product.imagen != null &&
+                        item.product.imagen!.isNotEmpty
+                    ? DecorationImage(
+                        image: NetworkImage(item.product.imagen!),
+                        fit: BoxFit.cover,
+                      )
+                    : null,
               ),
-              child: Icon(
-                item['icon'] as IconData,
-                size: 40,
-                color: Colors.blue,
-              ),
+              child: item.product.imagen == null || item.product.imagen!.isEmpty
+                  ? const Icon(Icons.shopping_bag, size: 40, color: Colors.blue)
+                  : null,
             ),
             const SizedBox(width: 12),
             // Información del producto
@@ -122,7 +124,7 @@ class _CartTabState extends State<CartTab> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    item['name'] as String,
+                    item.product.nombre,
                     style: const TextStyle(
                       fontWeight: FontWeight.bold,
                       fontSize: 16,
@@ -132,7 +134,7 @@ class _CartTabState extends State<CartTab> {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Bs. ${item['price'].toStringAsFixed(2)}',
+                    'Bs. ${item.product.precio.toStringAsFixed(2)}',
                     style: const TextStyle(
                       fontSize: 16,
                       color: Colors.blue,
@@ -146,17 +148,18 @@ class _CartTabState extends State<CartTab> {
                       _buildQuantityButton(
                         icon: Icons.remove,
                         onPressed: () {
-                          setState(() {
-                            if (item['quantity'] > 1) {
-                              item['quantity']--;
-                            }
-                          });
+                          if (item.quantity > 1) {
+                            widget.cartProvider.updateQuantity(
+                              item.product.id,
+                              item.quantity - 1,
+                            );
+                          }
                         },
                       ),
                       Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 16),
                         child: Text(
-                          '${item['quantity']}',
+                          '${item.quantity}',
                           style: const TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.bold,
@@ -166,17 +169,26 @@ class _CartTabState extends State<CartTab> {
                       _buildQuantityButton(
                         icon: Icons.add,
                         onPressed: () {
-                          setState(() {
-                            item['quantity']++;
-                          });
+                          if (item.quantity < item.product.stock) {
+                            widget.cartProvider.updateQuantity(
+                              item.product.id,
+                              item.quantity + 1,
+                            );
+                          } else {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Stock insuficiente'),
+                                backgroundColor: Colors.orange,
+                                duration: Duration(seconds: 2),
+                              ),
+                            );
+                          }
                         },
                       ),
                       const Spacer(),
                       IconButton(
                         onPressed: () {
-                          setState(() {
-                            _cartItems.removeAt(index);
-                          });
+                          widget.cartProvider.removeProduct(item.product.id);
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(
                               content: Text('Producto eliminado del carrito'),
@@ -218,7 +230,11 @@ class _CartTabState extends State<CartTab> {
     );
   }
 
-  Widget _buildCheckoutSection() {
+  Widget _buildCheckoutSection(CartProvider cart) {
+    const double shipping = 15.0;
+    final double subtotal = cart.total;
+    final double total = subtotal + shipping;
+
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -235,19 +251,17 @@ class _CartTabState extends State<CartTab> {
         top: false,
         child: Column(
           children: [
-            _buildPriceRow('Subtotal', _subtotal),
+            _buildPriceRow('Subtotal', subtotal),
             const SizedBox(height: 8),
-            _buildPriceRow('Envío', _shipping),
+            _buildPriceRow('Envío', shipping),
             const Divider(height: 24, thickness: 1),
-            _buildPriceRow('Total', _total, isTotal: true),
+            _buildPriceRow('Total', total, isTotal: true),
             const SizedBox(height: 16),
             SizedBox(
               width: double.infinity,
               height: 56,
               child: ElevatedButton(
-                onPressed: () {
-                  _showCheckoutDialog();
-                },
+                onPressed: _isProcessing ? null : () => _handleCheckout(cart),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.blue,
                   foregroundColor: Colors.white,
@@ -255,10 +269,24 @@ class _CartTabState extends State<CartTab> {
                     borderRadius: BorderRadius.circular(12),
                   ),
                 ),
-                child: const Text(
-                  'Proceder al Pago',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                ),
+                child: _isProcessing
+                    ? const SizedBox(
+                        height: 24,
+                        width: 24,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                            Colors.white,
+                          ),
+                        ),
+                      )
+                    : const Text(
+                        'Proceder al Pago',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
               ),
             ),
           ],
@@ -290,65 +318,44 @@ class _CartTabState extends State<CartTab> {
     );
   }
 
-  void _showCheckoutDialog() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Row(
-          children: [
-            Icon(Icons.check_circle, color: Colors.green, size: 32),
-            SizedBox(width: 12),
-            Text('Confirmar Pedido'),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              '¿Deseas confirmar tu pedido por un total de:',
-              style: TextStyle(fontSize: 14),
-            ),
-            const SizedBox(height: 12),
-            Text(
-              'Bs. ${_total.toStringAsFixed(2)}',
-              style: const TextStyle(
-                fontSize: 28,
-                fontWeight: FontWeight.bold,
-                color: Colors.blue,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              '${_cartItems.length} producto(s)',
-              style: TextStyle(fontSize: 14, color: Colors.grey.shade600),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancelar'),
+  Future<void> _handleCheckout(CartProvider cart) async {
+    if (_isProcessing) return;
+
+    setState(() => _isProcessing = true);
+
+    try {
+      await _paymentService.processPayment(
+        items: cart.items,
+        context: context,
+        descripcion: 'Compra de ${cart.itemCount} producto(s)',
+      );
+
+      // Si el pago fue exitoso, limpiar el carrito
+      cart.clear();
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('¡Pago realizado exitosamente!'),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 3),
           ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(context);
-              setState(() {
-                _cartItems.clear();
-              });
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('¡Pedido realizado con éxito!'),
-                  backgroundColor: Colors.green,
-                  duration: Duration(seconds: 3),
-                ),
-              );
-            },
-            child: const Text('Confirmar'),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error al procesar el pago: $e'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 3),
           ),
-        ],
-      ),
-    );
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isProcessing = false);
+      }
+    }
   }
 }

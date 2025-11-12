@@ -58,8 +58,12 @@ class Rol {
       descripcion: json['descripcion'] ?? '',
       esAdministrativo: json['es_administrativo'] ?? false,
       permisos: List<String>.from(json['permisos'] ?? []),
-      fechaCreacion: DateTime.parse(json['fecha_creacion'] ?? DateTime.now().toIso8601String()),
-      fechaActualizacion: DateTime.parse(json['fecha_actualizacion'] ?? DateTime.now().toIso8601String()),
+      fechaCreacion: DateTime.parse(
+        json['fecha_creacion'] ?? DateTime.now().toIso8601String(),
+      ),
+      fechaActualizacion: DateTime.parse(
+        json['fecha_actualizacion'] ?? DateTime.now().toIso8601String(),
+      ),
     );
   }
 
@@ -92,7 +96,7 @@ class User {
   final DateTime dateJoined;
   final DateTime? lastLogin;
   final Rol? rol;
-  
+
   // Propiedades calculadas
   final bool esAdministrativo;
   final bool esCliente;
@@ -128,14 +132,16 @@ class User {
       telefono: json['telefono'],
       direccion: json['direccion'],
       ci: json['ci'],
-      fechaNacimiento: json['fecha_nacimiento'] != null 
-          ? DateTime.parse(json['fecha_nacimiento']) 
+      fechaNacimiento: json['fecha_nacimiento'] != null
+          ? DateTime.parse(json['fecha_nacimiento'])
           : null,
       isActive: json['is_active'] ?? false,
       isStaff: json['is_staff'] ?? false,
-      dateJoined: DateTime.parse(json['date_joined'] ?? DateTime.now().toIso8601String()),
-      lastLogin: json['last_login'] != null 
-          ? DateTime.parse(json['last_login']) 
+      dateJoined: DateTime.parse(
+        json['date_joined'] ?? DateTime.now().toIso8601String(),
+      ),
+      lastLogin: json['last_login'] != null
+          ? DateTime.parse(json['last_login'])
           : null,
       rol: json['rol'] != null ? Rol.fromJson(json['rol']) : null,
       esAdministrativo: json['es_administrativo'] ?? false,
@@ -173,11 +179,7 @@ class LoginCredentials {
   final String? email;
   final String password;
 
-  LoginCredentials({
-    this.username,
-    this.email,
-    required this.password,
-  });
+  LoginCredentials({this.username, this.email, required this.password});
 
   Map<String, dynamic> toJson() {
     return {
@@ -225,7 +227,8 @@ class ClienteRegisterData {
       'telefono': telefono,
       if (direccion != null) 'direccion': direccion,
       'ci': ci,
-      if (fechaNacimiento != null) 'fecha_nacimiento': fechaNacimiento!.toIso8601String().split('T')[0],
+      if (fechaNacimiento != null)
+        'fecha_nacimiento': fechaNacimiento!.toIso8601String().split('T')[0],
     };
   }
 }
@@ -565,29 +568,34 @@ class AuthService {
 
       if (response.success && response.data != null) {
         final loginResponse = LoginResponse.fromJson(response.data!);
-        
+
         // Guardar tokens
         await saveToken(loginResponse.access);
         await saveRefreshToken(loginResponse.refresh);
 
         return ApiResponse<LoginResponse>(
-            success: true,
+          success: true,
           data: loginResponse,
-            message: 'Inicio de sesión exitoso',
-          );
-        } else {
+          message: 'Inicio de sesión exitoso',
+        );
+      } else {
         return ApiResponse<LoginResponse>(
           success: false,
           error: response.error ?? 'Error en el login',
         );
       }
     } catch (e) {
-      return ApiResponse<LoginResponse>(success: false, error: 'Error en el login: $e');
+      return ApiResponse<LoginResponse>(
+        success: false,
+        error: 'Error en el login: $e',
+      );
     }
   }
 
   // Registro de clientes (público con verificación)
-  Future<ApiResponse<Map<String, dynamic>>> registerCliente(ClienteRegisterData userData) async {
+  Future<ApiResponse<Map<String, dynamic>>> registerCliente(
+    ClienteRegisterData userData,
+  ) async {
     try {
       final response = await _apiRequestWithoutAuth<Map<String, dynamic>>(
         '/api/register/',
@@ -634,7 +642,7 @@ class AuthService {
 
       if (response.success && response.data != null) {
         final loginResponse = LoginResponse.fromJson(response.data!);
-        
+
         // Guardar tokens
         await saveToken(loginResponse.access);
         await saveRefreshToken(loginResponse.refresh);
@@ -646,12 +654,15 @@ class AuthService {
         );
       } else {
         return ApiResponse<LoginResponse>(
-        success: false,
+          success: false,
           error: response.error ?? 'Error en el login con Google',
         );
       }
     } catch (e) {
-      return ApiResponse<LoginResponse>(success: false, error: 'Error en el login con Google: $e');
+      return ApiResponse<LoginResponse>(
+        success: false,
+        error: 'Error en el login con Google: $e',
+      );
     }
   }
 
@@ -688,7 +699,9 @@ class AuthService {
   }
 
   // Reenviar código de verificación
-  Future<ApiResponse<Map<String, dynamic>>> resendVerificationCode(int userId) async {
+  Future<ApiResponse<Map<String, dynamic>>> resendVerificationCode(
+    int userId,
+  ) async {
     try {
       return await _apiRequestWithoutAuth<Map<String, dynamic>>(
         '/api/resend-code/',
@@ -753,12 +766,33 @@ class AuthService {
     try {
       final refreshToken = await getRefreshToken();
       if (refreshToken != null) {
-        await _apiRequest('/api/auth/logout/', method: 'POST', body: {'refresh': refreshToken});
+        await _apiRequest(
+          '/api/auth/logout/',
+          method: 'POST',
+          body: {'refresh': refreshToken},
+        );
       }
     } catch (e) {
       // Ignorar errores en logout
     } finally {
       await clearTokens();
+      // Limpiar también las preferencias de rol para evitar bugs de persistencia
+      await _clearUserRolePreferences();
+    }
+  }
+
+  // Limpiar preferencias de rol del usuario
+  Future<void> _clearUserRolePreferences() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove('is_admin');
+      await prefs.remove('can_access_admin');
+      await prefs.remove('is_client');
+      await prefs.remove('user_role_name');
+      await prefs.remove('user_role_id');
+      print('✅ Preferencias de rol limpiadas en logout');
+    } catch (e) {
+      print('❌ Error al limpiar preferencias de rol en logout: $e');
     }
   }
 
@@ -876,11 +910,13 @@ class AuthService {
   Future<bool> checkBackendConnection() async {
     try {
       final baseUrl = await IPDetection.getBaseUrl();
-      final response = await http.get(
-        Uri.parse('$baseUrl/api/auth/login/'),
-        headers: {'Accept': 'application/json'},
-      ).timeout(const Duration(seconds: 5));
-      
+      final response = await http
+          .get(
+            Uri.parse('$baseUrl/api/auth/login/'),
+            headers: {'Accept': 'application/json'},
+          )
+          .timeout(const Duration(seconds: 5));
+
       // Cualquier respuesta del servidor indica que está disponible
       return response.statusCode >= 200 && response.statusCode < 500;
     } catch (e) {
@@ -892,14 +928,15 @@ class AuthService {
   Future<void> showEnvironmentInfo() async {
     final envInfo = await getEnvironmentInfo();
     final isConnected = await checkBackendConnection();
-    
-    final message = '''
+
+    final message =
+        '''
 Entorno: ${envInfo['isCloud'] ? 'Nube' : 'Local'}
 URL: ${envInfo['baseUrl']}
 Plataforma: ${envInfo['platform']}
 Conectado: ${isConnected ? 'Sí' : 'No'}
 ''';
-    
+
     showSuccessToast(message);
   }
 }

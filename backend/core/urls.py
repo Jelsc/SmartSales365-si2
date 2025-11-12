@@ -39,6 +39,12 @@ urlpatterns = [
     # Pagos: sistema de pagos con Stripe
     path("api/payments/", include("payments.urls")),
     
+    # Productos: gestión de productos y categorías
+    path("api/", include("productos.urls")),
+    
+    # Reportes: reportes dinámicos con reconocimiento de voz
+    path("api/reportes/", include("reportes.urls")),
+    
     path("api/bitacora/", include("bitacora.urls")),
 
     # Auth social: endpoints para login social (navegador)
