@@ -3,9 +3,17 @@ Configuración de Firebase Admin SDK para el backend
 Maneja la inicialización y conexión con Firebase Cloud Messaging
 """
 import os
-import firebase_admin
-from firebase_admin import credentials, messaging
 from django.conf import settings
+
+# Intentar importar firebase_admin (opcional)
+try:
+    import firebase_admin
+    from firebase_admin import credentials, messaging
+    FIREBASE_AVAILABLE = True
+except ImportError:
+    FIREBASE_AVAILABLE = False
+    print('⚠️ firebase-admin no está instalado. Las notificaciones push no estarán disponibles.')
+    print('   Instala con: pip install firebase-admin>=6.0.0')
 
 # Variable global para evitar múltiples inicializaciones
 _firebase_initialized = False
@@ -17,6 +25,10 @@ def initialize_firebase():
     Se ejecuta automáticamente cuando Django inicia
     """
     global _firebase_initialized
+    
+    if not FIREBASE_AVAILABLE:
+        print('⚠️ Firebase Admin SDK no está disponible')
+        return
     
     if _firebase_initialized:
         print('✅ Firebase ya está inicializado')
@@ -57,8 +69,8 @@ def send_push_notification(token, title, body, data=None):
     Returns:
         str: Message ID si fue exitoso, None si falló
     """
-    if not _firebase_initialized:
-        print('❌ Firebase no está inicializado')
+    if not FIREBASE_AVAILABLE or not _firebase_initialized:
+        print('❌ Firebase no está disponible o no está inicializado')
         return None
     
     try:
@@ -109,8 +121,8 @@ def send_multicast_notification(tokens, title, body, data=None):
     Returns:
         BatchResponse: Respuesta del envío masivo
     """
-    if not _firebase_initialized:
-        print('❌ Firebase no está inicializado')
+    if not FIREBASE_AVAILABLE or not _firebase_initialized:
+        print('❌ Firebase no está disponible o no está inicializado')
         return None
     
     try:
@@ -161,8 +173,8 @@ def send_topic_notification(topic, title, body, data=None):
     Returns:
         str: Message ID si fue exitoso, None si falló
     """
-    if not _firebase_initialized:
-        print('❌ Firebase no está inicializado')
+    if not FIREBASE_AVAILABLE or not _firebase_initialized:
+        print('❌ Firebase no está disponible o no está inicializado')
         return None
     
     try:
@@ -203,8 +215,8 @@ def subscribe_to_topic(tokens, topic):
     Returns:
         TopicManagementResponse: Respuesta de la suscripción
     """
-    if not _firebase_initialized:
-        print('❌ Firebase no está inicializado')
+    if not FIREBASE_AVAILABLE or not _firebase_initialized:
+        print('❌ Firebase no está disponible o no está inicializado')
         return None
     
     try:
@@ -232,8 +244,8 @@ def unsubscribe_from_topic(tokens, topic):
     Returns:
         TopicManagementResponse: Respuesta de la desuscripción
     """
-    if not _firebase_initialized:
-        print('❌ Firebase no está inicializado')
+    if not FIREBASE_AVAILABLE or not _firebase_initialized:
+        print('❌ Firebase no está disponible o no está inicializado')
         return None
     
     try:

@@ -148,6 +148,7 @@ INSTALLED_APPS = [
     # "dj_rest_auth.jwt_auth",
     "rest_framework_simplejwt.token_blacklist",
     "bitacora",
+    "notifications",  # 🆕 Módulo de notificaciones push con Firebase
 ]
 
 AUTH_USER_MODEL = "users.CustomUser"

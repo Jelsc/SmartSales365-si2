@@ -51,6 +51,9 @@ urlpatterns = [
     # Analytics: dashboard inteligente con ML
     path("api/analytics/", include("analytics.urls")),
     
+    # Notificaciones: push notifications con Firebase
+    path("api/notifications/", include("notifications.urls")),
+    
     path("api/bitacora/", include("bitacora.urls")),
 
     # Auth social: endpoints para login social (navegador)
