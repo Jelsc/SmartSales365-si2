@@ -10,7 +10,6 @@ import 'auth_service.dart';
 class StripeConfig {
   // Esta es la clave pública de Stripe (DEBE coincidir con la del backend)
   static const String publishableKey =
-      'pk_test_51QKr0WRqGFHbYqJXNyxhvPBEj0jkqFp8aYOZaQBFhbvFh4o2BXVAf8LPQYjJH3IQzRYMKJHemMaY0JKqgJEsN4gO00H6ZDZnx9';
 }
 
 /// Servicio de Pagos con Stripe
