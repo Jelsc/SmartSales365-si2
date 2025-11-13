@@ -4,6 +4,7 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from django_filters.rest_framework import DjangoFilterBackend
 from django.db.models import Q
+from bitacora.utils import registrar_bitacora
 from .models import Categoria, Producto, ProductoImagen, ProductoVariante
 from .serializers import (
     CategoriaSerializer,
@@ -14,6 +15,7 @@ from .serializers import (
     ProductoVarianteSerializer
 )
 from .filters import ProductoFilter
+from .semantic_search import buscar_productos_semantica, interpretar_consulta
 
 
 class CategoriaViewSet(viewsets.ModelViewSet):
@@ -70,13 +72,54 @@ class CategoriaViewSet(viewsets.ModelViewSet):
         """Crear categoría con logging para debugging"""
         print("📝 CREATE - Request data:", request.data)
         print("📝 CREATE - Request FILES:", request.FILES)
-        return super().create(request, *args, **kwargs)
+        response = super().create(request, *args, **kwargs)
+        
+        # Registrar en bitácora
+        if response.status_code == status.HTTP_201_CREATED:
+            registrar_bitacora(
+                request=request,
+                accion='CREAR',
+                descripcion=f"Categoría creada: {response.data.get('nombre')}",
+                modulo='CATEGORIAS'
+            )
+        
+        return response
     
     def update(self, request, *args, **kwargs):
         """Actualizar categoría con logging para debugging"""
         print("📝 UPDATE - Request data:", request.data)
         print("📝 UPDATE - Request FILES:", request.FILES)
-        return super().update(request, *args, **kwargs)
+        response = super().update(request, *args, **kwargs)
+        
+        # Registrar en bitácora
+        if response.status_code == status.HTTP_200_OK:
+            registrar_bitacora(
+                request=request,
+                accion='ACTUALIZAR',
+                descripcion=f"Categoría actualizada: {response.data.get('nombre')}",
+                modulo='CATEGORIAS'
+            )
+        
+        return response
+    
+    def destroy(self, request, *args, **kwargs):
+        """Eliminar categoría y registrar en bitácora"""
+        instance = self.get_object()
+        categoria_nombre = instance.nombre
+        categoria_id = instance.id
+        
+        response = super().destroy(request, *args, **kwargs)
+        
+        # Registrar en bitácora
+        if response.status_code == status.HTTP_204_NO_CONTENT:
+            registrar_bitacora(
+                request=request,
+                accion='ELIMINAR',
+                descripcion=f"Categoría eliminada: {categoria_nombre}",
+                modulo='CATEGORIAS'
+            )
+        
+        return response
     
     @action(detail=True, methods=['get'])
     def productos(self, request, pk=None):
@@ -176,6 +219,56 @@ class ProductoViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(instance)
         return Response(serializer.data)
     
+    def create(self, request, *args, **kwargs):
+        """Crear producto y registrar en bitácora"""
+        response = super().create(request, *args, **kwargs)
+        
+        # Registrar en bitácora
+        if response.status_code == status.HTTP_201_CREATED:
+            registrar_bitacora(
+                request=request,
+                accion='CREAR',
+                descripcion=f"Producto creado: {response.data.get('nombre')} - SKU: {response.data.get('sku')}",
+                modulo='PRODUCTOS'
+            )
+        
+        return response
+    
+    def update(self, request, *args, **kwargs):
+        """Actualizar producto y registrar en bitácora"""
+        response = super().update(request, *args, **kwargs)
+        
+        # Registrar en bitácora
+        if response.status_code == status.HTTP_200_OK:
+            registrar_bitacora(
+                request=request,
+                accion='ACTUALIZAR',
+                descripcion=f"Producto actualizado: {response.data.get('nombre')} - SKU: {response.data.get('sku')}",
+                modulo='PRODUCTOS'
+            )
+        
+        return response
+    
+    def destroy(self, request, *args, **kwargs):
+        """Eliminar producto y registrar en bitácora"""
+        instance = self.get_object()
+        producto_nombre = instance.nombre
+        producto_sku = instance.sku
+        producto_id = instance.id
+        
+        response = super().destroy(request, *args, **kwargs)
+        
+        # Registrar en bitácora
+        if response.status_code == status.HTTP_204_NO_CONTENT:
+            registrar_bitacora(
+                request=request,
+                accion='ELIMINAR',
+                descripcion=f"Producto eliminado: {producto_nombre} - SKU: {producto_sku}",
+                modulo='PRODUCTOS'
+            )
+        
+        return response
+    
     @action(detail=False, methods=['get'])
     def destacados(self, request):
         """Obtener productos destacados"""
@@ -220,6 +313,114 @@ class ProductoViewSet(viewsets.ModelViewSet):
             'disponible': disponible,
             'stock_actual': producto.stock,
             'cantidad_solicitada': cantidad
+        })
+    
+    @action(detail=False, methods=['get'])
+    def buscar(self, request):
+        """
+        Búsqueda inteligente de productos con IA semántica
+        GET /api/productos/buscar/?q=quiero una lavadora
+        GET /api/productos/buscar/?q=termo&mode=semantic
+        
+        Parámetros:
+        - q: término de búsqueda (requerido)
+        - mode: 'semantic' (IA) o 'basic' (tradicional). Por defecto: semantic
+        - page: número de página
+        - page_size: resultados por página
+        
+        Ejemplos de consultas con IA:
+        - "quiero una lavadora"
+        - "necesito un termo de 1 litro"
+        - "busco laptop gaming barata"
+        - "dame ofertas de electrodomésticos"
+        """
+        query = request.query_params.get('q', '').strip()
+        mode = request.query_params.get('mode', 'semantic')  # semantic o basic
+        
+        if not query:
+            return Response({
+                'count': 0,
+                'results': [],
+                'message': 'Por favor ingresa un término de búsqueda'
+            })
+        
+        # Interpretar la consulta (extrae intención, filtros, etc.)
+        interpretacion = interpretar_consulta(query)
+        
+        # QuerySet base de productos activos
+        productos_base = Producto.objects.filter(activo=True)
+        
+        # Aplicar filtros detectados por IA
+        if interpretacion.get('filtros', {}).get('en_oferta'):
+            productos_base = productos_base.filter(en_oferta=True)
+        
+        if interpretacion.get('filtros', {}).get('precio') == 'bajo':
+            # Ordenar por precio ascendente
+            productos_base = productos_base.order_by('precio')
+        elif interpretacion.get('filtros', {}).get('precio') == 'alto':
+            # Ordenar por precio descendente
+            productos_base = productos_base.order_by('-precio')
+        
+        # Elegir modo de búsqueda
+        if mode == 'semantic':
+            # 🤖 BÚSQUEDA SEMÁNTICA CON IA
+            # Entiende "quiero una lavadora" y encuentra lavadoras
+            try:
+                productos_list = buscar_productos_semantica(
+                    query=query,
+                    productos_queryset=productos_base,
+                    top_k=100  # Obtener top 100 para paginar después
+                )
+                productos = productos_list
+                modo_usado = 'semantic_ai'
+            except Exception as e:
+                print(f"⚠️ Error en búsqueda semántica, fallback a básica: {e}")
+                # Fallback a búsqueda básica si falla la IA
+                mode = 'basic'
+        
+        if mode == 'basic':
+            # 📝 BÚSQUEDA TRADICIONAL (palabras clave)
+            productos = productos_base.filter(
+                Q(nombre__icontains=query) |
+                Q(descripcion__icontains=query) |
+                Q(descripcion_corta__icontains=query) |
+                Q(marca__icontains=query) |
+                Q(modelo__icontains=query) |
+                Q(sku__icontains=query) |
+                Q(categoria__nombre__icontains=query)
+            ).distinct()
+            modo_usado = 'basic_keyword'
+        
+        # Aplicar paginación
+        page_size = int(request.query_params.get('page_size', 20))
+        page = int(request.query_params.get('page', 1))
+        
+        start = (page - 1) * page_size
+        end = start + page_size
+        
+        # Si es lista (semántica), convertir a queryset-like
+        if isinstance(productos, list):
+            total = len(productos)
+            productos_paginados = productos[start:end]
+        else:
+            total = productos.count()
+            productos_paginados = productos[start:end]
+        
+        serializer = ProductoListSerializer(
+            productos_paginados,
+            many=True,
+            context={'request': request}
+        )
+        
+        return Response({
+            'count': total,
+            'results': serializer.data,
+            'page': page,
+            'page_size': page_size,
+            'total_pages': (total + page_size - 1) // page_size,
+            'query': query,
+            'mode': modo_usado,
+            'interpretacion': interpretacion if mode == 'semantic' else None,
         })
 
 

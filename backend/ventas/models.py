@@ -107,14 +107,43 @@ class Pedido(models.Model):
         super().save(*args, **kwargs)
 
     def actualizar_estado(self, nuevo_estado):
-        """Actualizar estado del pedido con fechas automáticas"""
+        """Actualizar estado del pedido con fechas automáticas y gestión de stock"""
+        estado_anterior = self.estado
         self.estado = nuevo_estado
-        if nuevo_estado == 'PAGADO' and not self.pagado_en:
-            self.pagado_en = timezone.now()
-        elif nuevo_estado == 'ENVIADO' and not self.enviado_en:
+        
+        # Reducir stock cuando se marca como PAGADO
+        if nuevo_estado == 'PAGADO' and estado_anterior != 'PAGADO':
+            from django.db import transaction
+            with transaction.atomic():
+                self.pagado_en = timezone.now()
+                # Reducir stock de cada producto
+                for item in self.items.select_for_update():
+                    producto = item.producto
+                    if producto.stock >= item.cantidad:
+                        producto.stock -= item.cantidad
+                        producto.save(update_fields=['stock'])
+                    else:
+                        raise ValueError(
+                            f'Stock insuficiente para {producto.nombre}. '
+                            f'Disponible: {producto.stock}, Requerido: {item.cantidad}'
+                        )
+        
+        # Restaurar stock si se cancela o reembolsa un pedido que estaba pagado
+        elif nuevo_estado in ['CANCELADO', 'REEMBOLSADO'] and estado_anterior == 'PAGADO':
+            from django.db import transaction
+            with transaction.atomic():
+                # Restaurar stock de cada producto
+                for item in self.items.select_for_update():
+                    producto = item.producto
+                    producto.stock += item.cantidad
+                    producto.save(update_fields=['stock'])
+        
+        # Actualizar fechas según el estado
+        if nuevo_estado == 'ENVIADO' and not self.enviado_en:
             self.enviado_en = timezone.now()
         elif nuevo_estado == 'ENTREGADO' and not self.entregado_en:
             self.entregado_en = timezone.now()
+        
         self.save()
 
 

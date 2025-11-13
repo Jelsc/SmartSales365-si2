@@ -24,6 +24,8 @@ import CarritoPage from "@/pages/client/carrito/carrito.page";
 import CheckoutPage from "@/pages/client/checkout/checkout.page";
 import MisPedidosPage from "@/pages/client/mis-pedidos/mis-pedidos.page";
 import PedidoDetallePage from "@/pages/client/mis-pedidos/pedido-detalle.page";
+import BuscarPage from "@/pages/client/buscar/buscar.page";
+import DashboardPage from "@/pages/admin/dashboard/dashboard.page";
 
 export default function AppRouter() {
   return (
@@ -35,6 +37,7 @@ export default function AppRouter() {
           <Route path="productos" element={<ProductosPage />} />
           <Route path="productos/:id" element={<ProductoDetallePage />} />
           <Route path="ofertas" element={<OfertasPage />} />
+          <Route path="buscar" element={<BuscarPage />} />
           
           {/* Rutas de carrito (requiere autenticación) */}
           <Route
@@ -109,6 +112,14 @@ export default function AppRouter() {
           element={
             <ProtectedRoute requireAdmin={true}>
               <AdminPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/dashboard"
+          element={
+            <ProtectedRoute requireAdmin={true}>
+              <DashboardPage />
             </ProtectedRoute>
           }
         />

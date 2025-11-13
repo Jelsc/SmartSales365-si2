@@ -4,6 +4,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
 } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -74,14 +75,19 @@ export default function PedidoDetail({
     }
   };
 
-  const formatCurrency = (amount: number) => {
-    return `Bs. ${amount.toFixed(2)}`;
+  const formatCurrency = (amount: number | string) => {
+    const numAmount = typeof amount === 'string' ? parseFloat(amount) : amount;
+    return `Bs. ${numAmount.toFixed(2)}`;
   };
 
   if (loading) {
     return (
       <Dialog open={open} onOpenChange={onClose}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Cargando pedido...</DialogTitle>
+            <DialogDescription>Por favor espera mientras cargamos los detalles del pedido</DialogDescription>
+          </DialogHeader>
           <div className="flex items-center justify-center py-12">
             <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
           </div>
@@ -96,16 +102,18 @@ export default function PedidoDetail({
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="flex items-center justify-between">
+          <DialogTitle className="flex items-center gap-2">
             <span>Pedido {pedido.numero_pedido}</span>
             <Badge variant="outline" className={ESTADO_COLORS[pedido.estado]}>
               {ESTADO_LABELS[pedido.estado]}
             </Badge>
           </DialogTitle>
+          <DialogDescription>
+            Detalles completos del pedido y opciones de gestión
+          </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-6">
-          {/* Información del cliente */}
+        <div className="space-y-6">          {/* Información del cliente */}
           <div>
             <h3 className="font-semibold mb-3 flex items-center gap-2">
               <User className="w-4 h-4" />

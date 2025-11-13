@@ -56,8 +56,9 @@ export default function PedidosTable({
     }
   };
 
-  const formatCurrency = (amount: number) => {
-    return `Bs. ${amount.toFixed(2)}`;
+  const formatCurrency = (amount: number | string) => {
+    const numAmount = typeof amount === 'string' ? parseFloat(amount) : amount;
+    return `Bs. ${numAmount.toFixed(2)}`;
   };
 
   if (loading && pedidos.length === 0) {

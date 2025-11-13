@@ -6,8 +6,10 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Loader2, Percent, Flame, TrendingDown } from 'lucide-react';
 import { toast } from 'react-hot-toast';
+import { useCart } from '@/context/CartContext';
 
 const OfertasPage: React.FC = () => {
+  const { agregarProducto } = useCart();
   const [ofertas, setOfertas] = useState<Producto[]>([]);
   const [filters, setFilters] = useState<ProductoFilters>({
     page: 1,
@@ -45,10 +47,9 @@ const OfertasPage: React.FC = () => {
     loadOfertas();
   }, [filters]);
 
-  const handleAddToCart = (producto: Producto) => {
-    // TODO: Implementar carrito de compras
-    toast.success(`${producto.nombre} agregado al carrito`);
-    console.log('Agregar al carrito:', producto);
+  const handleAddToCart = async (producto: Producto) => {
+    await agregarProducto(producto.id);
+    toast.success(`¡${producto.nombre} agregado al carrito`);
   };
 
   const handlePageChange = (newPage: number) => {

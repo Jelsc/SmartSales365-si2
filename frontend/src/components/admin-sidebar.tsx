@@ -13,7 +13,6 @@ import {
   Bell,
   Truck,
   MapPin,
-  ClipboardList,
   Camera,
   Shield,
   Calendar,
@@ -95,6 +94,12 @@ export default function Sidebar({ collapsed, setCollapsed }: SidebarProps) {
       route: "/admin/home",
     },
     {
+      id: "dashboard",
+      name: "Dashboard Analytics",
+      icon: BarChart3,
+      route: "/admin/dashboard",
+    },
+    {
       id: "usuarios-sistema",
       name: "Usuarios y Seguridad",
       icon: ShieldCheck,
@@ -155,12 +160,6 @@ export default function Sidebar({ collapsed, setCollapsed }: SidebarProps) {
           name: "Ventas",
           icon: ShoppingCart,
           route: "/admin/ventas",
-        },
-        {
-          id: "pedidos",
-          name: "Pedidos",
-          icon: ClipboardList,
-          route: "/admin/pedidos",
         },
       ],
     },

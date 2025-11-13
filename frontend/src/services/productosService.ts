@@ -198,15 +198,27 @@ export const productosService = {
   // Obtener productos en oferta
   async getOfertas(): Promise<Producto[]> {
     const { data } = await apiRequest<any[]>('/api/productos/ofertas/');
-    if (!data) throw new Error('No se pudo obtener los productos en oferta');
+    if (!data) throw new Error('No se pudo obtener las ofertas');
     return data.map(fromDTO);
   },
 
-  // Buscar productos
-  async buscar(query: string): Promise<Producto[]> {
-    const { data } = await apiRequest<any[]>(`/api/productos/buscar/?q=${encodeURIComponent(query)}`);
+  // Búsqueda inteligente de productos
+  async buscar(query: string, page: number = 1, pageSize: number = 20): Promise<PaginatedResponse<Producto>> {
+    const params = new URLSearchParams({
+      q: query,
+      page: page.toString(),
+      page_size: pageSize.toString(),
+    });
+    
+    const { data } = await apiRequest<any>(`/api/productos/buscar/?${params.toString()}`);
     if (!data) throw new Error('No se pudo realizar la búsqueda');
-    return data.map(fromDTO);
+    
+    return {
+      count: data.count,
+      next: data.next || null,
+      previous: data.previous || null,
+      results: data.results.map(fromDTO),
+    };
   },
 
   // Obtener productos por categoría

@@ -10,6 +10,7 @@ from .personal_seeder import PersonalSeeder
 from .categoria_seeder import CategoriaSeeder
 from .producto_seeder import ProductoSeeder
 from .metodo_pago_seeder import MetodoPagoSeeder
+from .pedido_seeder import PedidoSeeder
 
 __all__ = [
     'BaseSeeder',
@@ -21,6 +22,7 @@ __all__ = [
     'CategoriaSeeder',
     'ProductoSeeder',
     'MetodoPagoSeeder',
+    'PedidoSeeder',
 ]
 
 

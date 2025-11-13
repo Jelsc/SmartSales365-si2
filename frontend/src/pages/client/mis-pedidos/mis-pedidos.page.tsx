@@ -62,7 +62,7 @@ const MisPedidosPage = () => {
 
   const formatPrice = (price: number | string) => {
     const numPrice = typeof price === 'string' ? parseFloat(price) : price;
-    return `Bs. ${numPrice.toFixed(2)}`;
+    return `Bs ${numPrice.toFixed(2)}`;
   };
 
   if (loading) {
@@ -115,7 +115,7 @@ const MisPedidosPage = () => {
                         Realizado el {formatDate(pedido.creado)}
                       </p>
                       <p className="text-sm text-gray-600 mb-2">
-                        {pedido.items?.length || 0} producto(s)
+                        {pedido.total_items || 0} producto(s)
                       </p>
                       <p className="text-xl font-bold text-blue-600">
                         Total: {formatPrice(pedido.total)}

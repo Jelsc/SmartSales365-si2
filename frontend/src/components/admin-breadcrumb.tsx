@@ -11,7 +11,10 @@ import {
   Route,
   Car,
   UserCheck,
-  Truck
+  Truck,
+  ShoppingCart,
+  Package,
+  LayoutGrid
 } from 'lucide-react';
 
 // Define la estructura del sidebar para mantener consistencia
@@ -35,6 +38,16 @@ const sidebarStructure = [
     submodules: [
       { id: 'personal', name: 'Personal', icon: Users, route: '/admin/personal' },
       { id: 'conductores', name: 'Conductores', icon: Truck, route: '/admin/conductores' },
+    ]
+  },
+  {
+    id: 'e-commerce',
+    name: 'E-Commerce',
+    icon: ShoppingCart,
+    submodules: [
+      { id: 'productos', name: 'Productos', icon: Package, route: '/admin/productos' },
+      { id: 'categorias', name: 'Categorías', icon: LayoutGrid, route: '/admin/categorias' },
+      { id: 'ventas', name: 'Ventas', icon: ShoppingCart, route: '/admin/ventas' },
     ]
   },
   {

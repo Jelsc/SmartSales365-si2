@@ -94,7 +94,8 @@ class PedidoViewSet(viewsets.GenericViewSet):
         GET /api/pedidos/mis_pedidos/
         Listar los pedidos del usuario actual
         """
-        pedidos = self.get_queryset().order_by('-creado')
+        # Filtrar explícitamente por el usuario actual (ignorar is_staff)
+        pedidos = Pedido.objects.filter(usuario=request.user).select_related('usuario').prefetch_related('items', 'direccion_envio').order_by('-creado')
         
         # Paginación
         page = self.paginate_queryset(pedidos)
