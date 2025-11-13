@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../../services/cart_provider.dart';
 import 'tabs/home_tab.dart';
 import 'tabs/products_tab.dart';
 import 'tabs/cart_tab.dart';
@@ -15,32 +14,13 @@ class ClientHomeScreen extends StatefulWidget {
 
 class _ClientHomeScreenState extends State<ClientHomeScreen> {
   int _currentIndex = 0;
-  late CartProvider _cartProvider;
 
-  @override
-  void initState() {
-    super.initState();
-    _cartProvider = CartProvider();
-    // Escuchar cambios en el carrito
-    _cartProvider.addListener(_onCartChanged);
-  }
-
-  @override
-  void dispose() {
-    _cartProvider.removeListener(_onCartChanged);
-    super.dispose();
-  }
-
-  void _onCartChanged() {
-    if (mounted) setState(() {});
-  }
-
-  List<Widget> get _tabs => [
-    HomeTab(cartProvider: _cartProvider),
-    ProductsTab(cartProvider: _cartProvider),
-    CartTab(cartProvider: _cartProvider),
-    const OrdersTab(),
-    const ProfileTab(),
+  List<Widget> get _tabs => const [
+    HomeTab(),
+    ProductsTab(),
+    CartTab(),
+    OrdersTab(),
+    ProfileTab(),
   ];
 
   final List<String> _titles = const [
@@ -79,42 +59,13 @@ class _ClientHomeScreenState extends State<ClientHomeScreen> {
               },
             ),
           if (_currentIndex == 0 || _currentIndex == 1)
-            Stack(
-              children: [
-                IconButton(
-                  icon: const Icon(Icons.shopping_cart),
-                  onPressed: () {
-                    setState(() {
-                      _currentIndex = 2;
-                    });
-                  },
-                ),
-                if (_cartProvider.itemCount > 0)
-                  Positioned(
-                    right: 8,
-                    top: 8,
-                    child: Container(
-                      padding: const EdgeInsets.all(4),
-                      decoration: const BoxDecoration(
-                        color: Colors.red,
-                        shape: BoxShape.circle,
-                      ),
-                      constraints: const BoxConstraints(
-                        minWidth: 16,
-                        minHeight: 16,
-                      ),
-                      child: Text(
-                        '${_cartProvider.itemCount}',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-                    ),
-                  ),
-              ],
+            IconButton(
+              icon: const Icon(Icons.shopping_cart),
+              onPressed: () {
+                setState(() {
+                  _currentIndex = 2;
+                });
+              },
             ),
         ],
       ),

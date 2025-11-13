@@ -3,93 +3,14 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter_stripe/flutter_stripe.dart';
 import 'package:fluttertoast/fluttertoast.dart';
-import '../utils/ip_detection.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'auth_service.dart';
 
 /// Configuración de Stripe
 class StripeConfig {
+  // Esta es la clave pública de Stripe (DEBE coincidir con la del backend)
   static const String publishableKey =
-      'pk_test_51SSQmsGpuPRRIbhhquQKbu1zpoB4ynBMtsOVcs1KLzQdipziFJBFMh0bMdoAMscIrZoEOsrGrF5U85OQ1KvZ4LoA00XERcs2cP';
-}
-
-/// Modelo de Producto
-class Product {
-  final int id;
-  final String nombre;
-  final String descripcion;
-  final double precio;
-  final String? imagen;
-  final int stock;
-  final String categoria;
-
-  Product({
-    required this.id,
-    required this.nombre,
-    required this.descripcion,
-    required this.precio,
-    this.imagen,
-    required this.stock,
-    required this.categoria,
-  });
-
-  factory Product.fromJson(Map<String, dynamic> json) {
-    return Product(
-      id: json['id'] ?? 0,
-      nombre: json['nombre'] ?? '',
-      descripcion: json['descripcion'] ?? '',
-      precio: (json['precio'] ?? 0).toDouble(),
-      imagen: json['imagen'],
-      stock: json['stock'] ?? 0,
-      categoria: json['categoria'] ?? '',
-    );
-  }
-}
-
-/// Item del carrito
-class CartItem {
-  final Product product;
-  int quantity;
-
-  CartItem({required this.product, this.quantity = 1});
-
-  double get total => product.precio * quantity;
-
-  Map<String, dynamic> toJson() {
-    return {
-      'product_id': product.id,
-      'product_name': product.nombre,
-      'quantity': quantity,
-      'price': product.precio,
-      'total': total,
-    };
-  }
-}
-
-/// Modelo de respuesta de pago
-class PaymentResponse {
-  final bool success;
-  final String? sessionId;
-  final String? checkoutUrl;
-  final String? error;
-  final String? message;
-
-  PaymentResponse({
-    required this.success,
-    this.sessionId,
-    this.checkoutUrl,
-    this.error,
-    this.message,
-  });
-
-  factory PaymentResponse.fromJson(Map<String, dynamic> json) {
-    return PaymentResponse(
-      success: json['success'] ?? false,
-      sessionId: json['session_id'],
-      checkoutUrl: json['checkout_url'],
-      error: json['error'],
-      message: json['message'],
-    );
-  }
+      'pk_test_51QKr0WRqGFHbYqJXNyxhvPBEj0jkqFp8aYOZaQBFhbvFh4o2BXVAf8LPQYjJH3IQzRYMKJHemMaY0JKqgJEsN4gO00H6ZDZnx9';
 }
 
 /// Servicio de Pagos con Stripe
@@ -100,6 +21,12 @@ class PaymentService {
   factory PaymentService() => _instance;
 
   PaymentService._internal();
+
+  /// Obtener la URL base del backend desde SharedPreferences
+  Future<String> _getBaseUrl() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString('api_url') ?? 'http://localhost:8000';
+  }
 
   /// Inicializar Stripe
   Future<void> initializeStripe() async {
@@ -112,34 +39,24 @@ class PaymentService {
     }
   }
 
-  /// Crear sesión de pago con Stripe Checkout
-  Future<PaymentResponse> createCheckoutSession({
-    required List<CartItem> items,
-    String? descripcion,
-  }) async {
+  /// Crear un Payment Intent para un pedido
+  ///
+  /// Args:
+  ///   pedidoId: ID del pedido creado
+  ///
+  /// Returns:
+  ///   Map con 'client_secret', 'payment_intent_id', etc.
+  Future<Map<String, dynamic>> crearPaymentIntent(int pedidoId) async {
     try {
-      final baseUrl = await IPDetection.getBaseUrl();
-      final url = Uri.parse('$baseUrl/api/payments/create-checkout-session/');
+      final baseUrl = await _getBaseUrl();
+      final url = Uri.parse('$baseUrl/api/pagos/crear_payment_intent/');
 
       final token = await _authService.getToken();
       if (token == null) {
-        return PaymentResponse(
-          success: false,
-          error: 'No hay token de autenticación',
-        );
+        throw Exception('No hay token de autenticación');
       }
 
-      // Preparar items para el backend
-      final itemsJson = items
-          .map(
-            (item) => {
-              'product_id': item.product.id,
-              'product_name': item.product.nombre,
-              'quantity': item.quantity,
-              'price': item.product.precio,
-            },
-          )
-          .toList();
+      print('[PAYMENT] Creando payment intent para pedido $pedidoId');
 
       final response = await http.post(
         url,
@@ -147,50 +64,51 @@ class PaymentService {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer $token',
         },
-        body: jsonEncode({
-          'items': itemsJson,
-          'descripcion': descripcion ?? 'Compra en SmartSales365',
-          'success_url': 'smartsales365://payment-success',
-          'cancel_url': 'smartsales365://payment-cancel',
-        }),
+        body: jsonEncode({'pedido_id': pedidoId}),
       );
 
-      if (response.statusCode == 200 || response.statusCode == 201) {
-        final data = jsonDecode(response.body);
-        return PaymentResponse.fromJson(data);
-      } else {
-        final error = jsonDecode(response.body);
-        return PaymentResponse(
-          success: false,
-          error: error['error'] ?? 'Error al crear sesión de pago',
+      if (response.statusCode == 200) {
+        final data = jsonDecode(utf8.decode(response.bodyBytes));
+        print(
+          '[PAYMENT] ✅ Payment intent creado: ${data['payment_intent_id']}',
         );
+        return {
+          'client_secret': data['client_secret'],
+          'payment_intent_id': data['payment_intent_id'],
+          'transaccion_id': data['transaccion_id'],
+          'amount': data['amount'],
+          'currency': data['currency'],
+          'publishable_key': data['publishable_key'],
+        };
+      } else {
+        final error = jsonDecode(utf8.decode(response.bodyBytes));
+        print('[PAYMENT] ❌ Error al crear payment intent: ${error['error']}');
+        throw Exception(error['error'] ?? 'Error al crear payment intent');
       }
     } catch (e) {
-      print('❌ Error en createCheckoutSession: $e');
-      return PaymentResponse(success: false, error: 'Error de conexión: $e');
+      print('❌ Error en crearPaymentIntent: $e');
+      rethrow;
     }
   }
 
-  /// Procesar pago con Payment Intent (flujo nativo)
-  Future<bool> processPayment({
-    required List<CartItem> items,
-    required BuildContext context,
-    String? descripcion,
-  }) async {
+  /// Confirmar un pago exitoso en el backend
+  ///
+  /// Args:
+  ///   paymentIntentId: ID del Payment Intent de Stripe
+  ///
+  /// Returns:
+  ///   true si el pago fue confirmado exitosamente
+  Future<bool> confirmarPago(String paymentIntentId) async {
     try {
-      // 1. Crear Payment Intent en el backend
-      final baseUrl = await IPDetection.getBaseUrl();
-      final url = Uri.parse('$baseUrl/api/payments/create-payment-intent/');
+      final baseUrl = await _getBaseUrl();
+      final url = Uri.parse('$baseUrl/api/pagos/confirmar_pago/');
 
       final token = await _authService.getToken();
       if (token == null) {
-        _showToast('Error: No autenticado');
-        return false;
+        throw Exception('No hay token de autenticación');
       }
 
-      final total = items.fold(0.0, (sum, item) => sum + item.total);
-
-      final itemsJson = items.map((item) => item.toJson()).toList();
+      print('[PAYMENT] Confirmando pago: $paymentIntentId');
 
       final response = await http.post(
         url,
@@ -198,28 +116,45 @@ class PaymentService {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer $token',
         },
-        body: jsonEncode({
-          'amount': total,
-          'items': itemsJson,
-          'descripcion': descripcion ?? 'Compra en SmartSales365',
-        }),
+        body: jsonEncode({'payment_intent_id': paymentIntentId}),
       );
 
-      if (response.statusCode != 200 && response.statusCode != 201) {
-        final error = jsonDecode(response.body);
-        _showToast('Error: ${error['error'] ?? 'Error al procesar pago'}');
-        return false;
+      if (response.statusCode == 200) {
+        final data = jsonDecode(utf8.decode(response.bodyBytes));
+        print('[PAYMENT] ✅ Pago confirmado: ${data['message']}');
+        return data['success'] == true && data['status'] == 'succeeded';
+      } else {
+        final error = jsonDecode(utf8.decode(response.bodyBytes));
+        print('[PAYMENT] ❌ Error al confirmar pago: ${error['error']}');
+        throw Exception(error['error'] ?? 'Error al confirmar pago');
       }
+    } catch (e) {
+      print('❌ Error en confirmarPago: $e');
+      rethrow;
+    }
+  }
 
-      final data = jsonDecode(response.body);
-      final clientSecret = data['client_secret'];
+  /// Procesar pago completo con Stripe Payment Sheet
+  ///
+  /// Este método maneja todo el flujo:
+  /// 1. Inicializa el Payment Sheet con el client secret
+  /// 2. Presenta el formulario de pago
+  /// 3. Confirma el pago con Stripe
+  ///
+  /// Args:
+  ///   clientSecret: Client secret del Payment Intent
+  ///   pedidoId: ID del pedido (para logging)
+  ///
+  /// Returns:
+  ///   paymentIntentId si el pago fue exitoso, null si fue cancelado
+  Future<String?> procesarPagoConPaymentSheet({
+    required String clientSecret,
+    required int pedidoId,
+  }) async {
+    try {
+      print('[PAYMENT] Inicializando Payment Sheet para pedido $pedidoId');
 
-      if (clientSecret == null) {
-        _showToast('Error: No se pudo obtener client secret');
-        return false;
-      }
-
-      // 2. Inicializar Payment Sheet
+      // 1. Inicializar Payment Sheet
       await Stripe.instance.initPaymentSheet(
         paymentSheetParameters: SetupPaymentSheetParameters(
           paymentIntentClientSecret: clientSecret,
@@ -231,31 +166,42 @@ class PaymentService {
         ),
       );
 
-      // 3. Presentar Payment Sheet
+      print('[PAYMENT] Presentando Payment Sheet');
+
+      // 2. Presentar Payment Sheet
       await Stripe.instance.presentPaymentSheet();
 
-      // 4. Pago exitoso
+      // 3. Si llegamos aquí, el pago fue exitoso
+      // Extraer payment_intent_id del client_secret
+      final parts = clientSecret.split('_secret_');
+      final paymentIntentId = parts[0];
+
+      print('[PAYMENT] ✅ Pago exitoso: $paymentIntentId');
       _showToast('✅ Pago procesado exitosamente');
-      return true;
+
+      return paymentIntentId;
     } on StripeException catch (e) {
       if (e.error.code == FailureCode.Canceled) {
+        print('[PAYMENT] Pago cancelado por el usuario');
         _showToast('Pago cancelado');
+        return null;
       } else {
+        print('[PAYMENT] ❌ Error de Stripe: ${e.error.message}');
         _showToast('Error: ${e.error.message ?? "Error desconocido"}');
+        throw Exception(e.error.message ?? 'Error al procesar pago');
       }
-      return false;
     } catch (e) {
-      print('❌ Error en processPayment: $e');
-      _showToast('Error al procesar pago: $e');
-      return false;
+      print('❌ Error en procesarPagoConPaymentSheet: $e');
+      _showToast('Error al procesar pago');
+      rethrow;
     }
   }
 
   /// Obtener historial de pagos del usuario
   Future<List<PaymentHistory>> getPaymentHistory() async {
     try {
-      final baseUrl = await IPDetection.getBaseUrl();
-      final url = Uri.parse('$baseUrl/api/payments/my-payments/');
+      final baseUrl = await _getBaseUrl();
+      final url = Uri.parse('$baseUrl/api/pagos/');
 
       final token = await _authService.getToken();
       if (token == null) {
@@ -268,8 +214,19 @@ class PaymentService {
       );
 
       if (response.statusCode == 200) {
-        final List<dynamic> data = jsonDecode(response.body);
-        return data.map((json) => PaymentHistory.fromJson(json)).toList();
+        final data = jsonDecode(utf8.decode(response.bodyBytes));
+
+        // El endpoint de pagos puede retornar lista directa o paginada
+        final List<dynamic> results;
+        if (data is List) {
+          results = data;
+        } else if (data is Map && data['results'] != null) {
+          results = data['results'];
+        } else {
+          results = [];
+        }
+
+        return results.map((json) => PaymentHistory.fromJson(json)).toList();
       }
 
       return [];

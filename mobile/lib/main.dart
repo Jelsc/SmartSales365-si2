@@ -6,12 +6,12 @@ import 'package:flutter_stripe/flutter_stripe.dart';
 import 'services/auth_service.dart';
 import 'services/notification_service.dart';
 import 'services/payment_service.dart';
-import 'services/cart_provider.dart';
 import 'navigation/app_router.dart';
 import 'screens/onboarding_screen.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/client/client_home_screen.dart';
 import 'screens/admin/admin_home_screen.dart';
+import 'utils/ip_detection.dart';
 
 /// Handler para notificaciones en background (debe estar en nivel superior)
 @pragma('vm:entry-point')
@@ -24,6 +24,13 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   try {
+    // Detectar y guardar la URL del backend PRIMERO
+    print('🔍 Detectando URL del backend...');
+    final baseUrl = await IPDetection.getBaseUrl();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('api_url', baseUrl);
+    print('✅ URL del backend configurada: $baseUrl');
+
     // Inicializar Firebase
     await Firebase.initializeApp();
     print('✅ Firebase inicializado');

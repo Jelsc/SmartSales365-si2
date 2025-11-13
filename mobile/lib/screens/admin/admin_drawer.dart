@@ -246,20 +246,11 @@ class _AdminDrawerState extends State<AdminDrawer> {
                       route: '/admin/ventas',
                     ),
                     _buildSubMenuItem(
-                      icon: Icons.receipt_long,
+                      icon: Icons.shopping_bag,
                       title: 'Pedidos',
                       route: '/admin/pedidos',
                     ),
                   ],
-                ),
-
-                const Divider(height: 1),
-
-                // Reportes
-                _buildMenuItem(
-                  icon: Icons.assessment,
-                  title: 'Reportes',
-                  route: '/admin/reportes',
                 ),
 
                 const Divider(height: 1),

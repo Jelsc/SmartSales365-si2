@@ -6,6 +6,21 @@ import '../screens/auth/login_screen.dart';
 import '../screens/onboarding_screen.dart';
 import '../services/auth_service.dart';
 
+// Importar todas las pantallas de administración
+import '../screens/admin/dashboard/admin_dashboard_screen.dart';
+import '../screens/admin/usuarios/usuarios_screen.dart';
+import '../screens/admin/roles/roles_screen.dart';
+import '../screens/admin/permisos/permisos_screen.dart';
+import '../screens/admin/personal/personal_screen.dart';
+import '../screens/admin/conductores/conductores_screen.dart';
+import '../screens/admin/categorias/categorias_screen.dart';
+import '../screens/admin/productos/productos_list_screen.dart';
+import '../screens/admin/pedidos/pedidos_screen.dart';
+import '../screens/admin/ventas/ventas_screen.dart';
+import '../screens/admin/reportes/reportes_voz_screen.dart';
+import '../screens/admin/notificaciones/notificaciones_screen.dart';
+import '../screens/admin/bitacora/bitacora_screen.dart';
+
 class AppRouter {
   static const String onboarding = '/onboarding';
   static const String login = '/login';
@@ -33,8 +48,96 @@ class AppRouter {
         );
 
       case adminHome:
+      case '/admin/home':
         return MaterialPageRoute(
           builder: (_) => const AdminHomeScreen(),
+          settings: settings,
+        );
+
+      // === RUTAS DE ADMINISTRACIÓN ===
+
+      // Dashboard
+      case '/admin/dashboard':
+        return MaterialPageRoute(
+          builder: (_) => const AdminDashboardScreen(),
+          settings: settings,
+        );
+
+      // Usuarios y Seguridad
+      case '/admin/usuarios':
+        return MaterialPageRoute(
+          builder: (_) => const UsuariosScreen(),
+          settings: settings,
+        );
+
+      case '/admin/roles':
+        return MaterialPageRoute(
+          builder: (_) => const RolesScreen(),
+          settings: settings,
+        );
+
+      case '/admin/permisos':
+        return MaterialPageRoute(
+          builder: (_) => const PermisosScreen(),
+          settings: settings,
+        );
+
+      // Administración Interna
+      case '/admin/personal':
+        return MaterialPageRoute(
+          builder: (_) => const PersonalScreen(),
+          settings: settings,
+        );
+
+      case '/admin/conductores':
+        return MaterialPageRoute(
+          builder: (_) => const ConductoresScreen(),
+          settings: settings,
+        );
+
+      // E-Commerce
+      case '/admin/categorias':
+        return MaterialPageRoute(
+          builder: (_) => const CategoriasScreen(),
+          settings: settings,
+        );
+
+      case '/admin/productos':
+        return MaterialPageRoute(
+          builder: (_) => const ProductosListScreen(),
+          settings: settings,
+        );
+
+      case '/admin/pedidos':
+        return MaterialPageRoute(
+          builder: (_) => const PedidosScreen(),
+          settings: settings,
+        );
+
+      case '/admin/ventas':
+        return MaterialPageRoute(
+          builder: (_) => const VentasScreen(),
+          settings: settings,
+        );
+
+      // Reportes
+      case '/admin/reportes':
+        return MaterialPageRoute(
+          builder: (_) => const ReportesVozScreen(),
+          settings: settings,
+        );
+
+      // Notificaciones
+      case '/admin/notificaciones':
+        return MaterialPageRoute(
+          builder: (_) => const NotificacionesScreen(),
+          settings: settings,
+        );
+
+      // Bitácora
+      case '/admin/bitacora':
+        return MaterialPageRoute(
+          builder: (_) => const BitacoraScreen(),
           settings: settings,
         );
 

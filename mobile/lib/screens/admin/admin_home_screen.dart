@@ -5,6 +5,7 @@ import '../../services/dashboard_admin_service.dart';
 import 'dashboard/admin_dashboard_screen.dart';
 import 'productos/productos_list_screen.dart';
 import 'reportes/reportes_voz_screen.dart';
+import 'admin_drawer.dart';
 
 class AdminHomeScreen extends StatefulWidget {
   const AdminHomeScreen({super.key});
@@ -716,78 +717,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
           ),
         ],
       ),
-      drawer: Drawer(
-        child: ListView(
-          padding: EdgeInsets.zero,
-          children: [
-            UserAccountsDrawerHeader(
-              decoration: const BoxDecoration(color: Colors.blue),
-              currentAccountPicture: CircleAvatar(
-                backgroundColor: Colors.white,
-                child: Text(
-                  _currentUser != null && _currentUser!.firstName.isNotEmpty
-                      ? _currentUser!.firstName.substring(0, 1).toUpperCase()
-                      : 'A',
-                  style: const TextStyle(fontSize: 40, color: Colors.blue),
-                ),
-              ),
-              accountName: Text(
-                '${_currentUser?.firstName ?? ''} ${_currentUser?.lastName ?? ''}'
-                    .trim(),
-              ),
-              accountEmail: Text(_currentUser?.email ?? ''),
-            ),
-            ListTile(
-              leading: const Icon(Icons.dashboard),
-              title: const Text('Dashboard'),
-              selected: _selectedIndex == 0,
-              onTap: () {
-                setState(() => _selectedIndex = 0);
-                Navigator.pop(context);
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.people),
-              title: const Text('Usuarios'),
-              selected: _selectedIndex == 1,
-              onTap: () {
-                setState(() => _selectedIndex = 1);
-                Navigator.pop(context);
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.analytics),
-              title: const Text('Reportes'),
-              selected: _selectedIndex == 2,
-              onTap: () {
-                setState(() => _selectedIndex = 2);
-                Navigator.pop(context);
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.settings),
-              title: const Text('Configuración'),
-              selected: _selectedIndex == 3,
-              onTap: () {
-                setState(() => _selectedIndex = 3);
-                Navigator.pop(context);
-              },
-            ),
-            const Divider(),
-            ListTile(
-              leading: const Icon(Icons.logout, color: Colors.red),
-              title: const Text(
-                'Cerrar Sesión',
-                style: TextStyle(color: Colors.red),
-              ),
-              onTap: () {
-                Navigator.pop(context);
-                _handleLogout();
-              },
-            ),
-          ],
-        ),
-      ),
+      drawer: const AdminDrawer(currentRoute: '/admin/home'),
       body: _getSelectedPage(),
     );
   }
