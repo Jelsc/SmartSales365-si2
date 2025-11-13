@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../services/pedidos_service.dart';
+import '../../utils/pdf_service.dart';
+import 'client_home_screen.dart';
 
 class OrderConfirmationScreen extends StatelessWidget {
   final Pedido pedido;
@@ -63,6 +65,7 @@ class OrderConfirmationScreen extends StatelessWidget {
                           'Número de Pedido',
                           pedido.numeroPedido,
                           isBold: true,
+                          canOverflow: true,
                         ),
                         const Divider(height: 24),
                         _buildDetailRow(
@@ -110,6 +113,31 @@ class OrderConfirmationScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 32),
 
+                // Botón de descargar PDF
+                SizedBox(
+                  width: double.infinity,
+                  height: 50,
+                  child: ElevatedButton.icon(
+                    onPressed: () => _descargarPDF(context),
+                    icon: const Icon(Icons.picture_as_pdf),
+                    label: const Text(
+                      'Descargar Comprobante PDF',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.red.shade600,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+
                 // Botones de acción
                 Column(
                   children: [
@@ -118,12 +146,12 @@ class OrderConfirmationScreen extends StatelessWidget {
                       height: 50,
                       child: ElevatedButton(
                         onPressed: () {
-                          // Navegar a la pantalla de pedidos
-                          Navigator.of(
-                            context,
-                          ).popUntil((route) => route.isFirst);
-                          // Cambiar al tab de pedidos (índice 3)
-                          DefaultTabController.of(context).animateTo(3);
+                          // Navegar a la pantalla de pedidos (tab 3)
+                          Navigator.of(context).pushReplacement(
+                            MaterialPageRoute(
+                              builder: (context) => const ClientHomeScreen(initialTabIndex: 3),
+                            ),
+                          );
                         },
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.blue,
@@ -183,21 +211,84 @@ class OrderConfirmationScreen extends StatelessWidget {
     String value, {
     bool isBold = false,
     Color? valueColor,
+    bool canOverflow = false,
   }) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: const TextStyle(fontSize: 14, color: Colors.grey)),
-        Text(
-          value,
-          style: TextStyle(
-            fontSize: 16,
-            fontWeight: isBold ? FontWeight.bold : FontWeight.normal,
-            color: valueColor ?? Colors.black87,
+        Flexible(
+          flex: 2,
+          child: Text(
+            label,
+            style: const TextStyle(fontSize: 14, color: Colors.grey),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Flexible(
+          flex: 3,
+          child: Text(
+            value,
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: isBold ? FontWeight.bold : FontWeight.normal,
+              color: valueColor ?? Colors.black87,
+            ),
+            textAlign: TextAlign.right,
+            maxLines: canOverflow ? 2 : 1,
+            overflow: TextOverflow.ellipsis,
           ),
         ),
       ],
     );
+  }
+
+  Future<void> _descargarPDF(BuildContext context) async {
+    try {
+      // Mostrar indicador de carga
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
+
+      // Generar y mostrar el PDF
+      await PdfService.mostrarYCompartirPDF(pedido);
+
+      // Cerrar el indicador de carga
+      if (context.mounted) {
+        Navigator.of(context).pop();
+      }
+
+      // Mostrar mensaje de éxito
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('PDF generado exitosamente. Puedes compartirlo o guardarlo.'),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 3),
+          ),
+        );
+      }
+    } catch (e) {
+      // Cerrar el indicador de carga si hay error
+      if (context.mounted) {
+        Navigator.of(context).pop();
+      }
+
+      // Mostrar mensaje de error
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error al generar PDF: ${e.toString()}'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    }
   }
 
   String _formatEstado(String estado) {

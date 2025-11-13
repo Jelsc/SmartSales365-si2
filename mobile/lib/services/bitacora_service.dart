@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
-import '../utils/ip_detection.dart';
+import '../config/api_config.dart';
 
 class RegistroBitacora {
   final int id;
@@ -77,7 +77,7 @@ class BitacoraService {
     String? rol,
   }) async {
     try {
-      final baseUrl = await IPDetection.getBaseUrl();
+      final baseUrl = ApiConfig.getBaseUrl();
       final Map<String, String> queryParams = {};
 
       if (busqueda != null && busqueda.isNotEmpty) {
@@ -123,7 +123,7 @@ class BitacoraService {
 
   Future<ApiResponse<RegistroBitacora>> getRegistro(int id) async {
     try {
-      final baseUrl = await IPDetection.getBaseUrl();
+      final baseUrl = ApiConfig.getBaseUrl();
       final response = await http.get(
         Uri.parse('$baseUrl/api/bitacora/$id/'),
         headers: await _getHeaders(),

@@ -3,7 +3,7 @@ import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../utils/ip_detection.dart';
+import '../config/api_config.dart';
 
 class ReportesService {
   /// Genera un reporte dinámico mediante comando de voz o texto
@@ -24,7 +24,7 @@ class ReportesService {
         throw Exception('No hay token de autenticación');
       }
 
-      final baseUrl = await IPDetection.getBaseUrl();
+      final baseUrl = ApiConfig.getBaseUrl();
       final url = Uri.parse('$baseUrl/api/reportes/generar/');
 
       final response = await http.post(
@@ -101,7 +101,7 @@ class ReportesService {
         throw Exception('No hay token de autenticación');
       }
 
-      final baseUrl = await IPDetection.getBaseUrl();
+      final baseUrl = ApiConfig.getBaseUrl();
       final url = Uri.parse('$baseUrl/api/reportes/historial/');
 
       final response = await http.get(

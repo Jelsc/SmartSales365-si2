@@ -1,9 +1,12 @@
 import 'dart:convert';
+import 'dart:async';
+import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:flutter/material.dart';
-import '../utils/ip_detection.dart';
+import '../config/api_config.dart';
+import 'notification_service.dart';
 
 // Configuración base de la API - Ahora con detección automática
 
@@ -359,34 +362,44 @@ class AuthService {
     String method = 'GET',
     Map<String, dynamic>? body,
     T Function(dynamic)? fromJson,
+    Duration? timeout,
   }) async {
-    final baseUrl = await IPDetection.getBaseUrl();
+    final baseUrl = ApiConfig.getBaseUrl();
     final url = Uri.parse('$baseUrl$endpoint');
     final headers = await _authHeaders;
+    final requestTimeout = timeout ?? const Duration(seconds: 15);
 
     try {
       http.Response response;
 
       switch (method.toUpperCase()) {
         case 'GET':
-          response = await http.get(url, headers: headers);
+          response = await http
+              .get(url, headers: headers)
+              .timeout(requestTimeout);
           break;
         case 'POST':
-          response = await http.post(
-            url,
-            headers: headers,
-            body: body != null ? jsonEncode(body) : null,
-          );
+          response = await http
+              .post(
+                url,
+                headers: headers,
+                body: body != null ? jsonEncode(body) : null,
+              )
+              .timeout(requestTimeout);
           break;
         case 'PUT':
-          response = await http.put(
-            url,
-            headers: headers,
-            body: body != null ? jsonEncode(body) : null,
-          );
+          response = await http
+              .put(
+                url,
+                headers: headers,
+                body: body != null ? jsonEncode(body) : null,
+              )
+              .timeout(requestTimeout);
           break;
         case 'DELETE':
-          response = await http.delete(url, headers: headers);
+          response = await http
+              .delete(url, headers: headers)
+              .timeout(requestTimeout);
           break;
         default:
           throw Exception('Método HTTP no soportado: $method');
@@ -468,8 +481,32 @@ class AuthService {
           message: responseData['message'],
         );
       }
+    } on TimeoutException catch (e) {
+      print('⏱️ Timeout en petición a $endpoint: $e');
+      return ApiResponse<T>(
+        success: false,
+        error:
+            'Tiempo de espera agotado. Verifica tu conexión a internet y que el servidor esté disponible en $baseUrl',
+      );
+    } on SocketException catch (e) {
+      print('🌐 Error de conexión a $endpoint: $e');
+      return ApiResponse<T>(
+        success: false,
+        error:
+            'No se pudo conectar al servidor. Verifica que el backend esté corriendo en $baseUrl',
+      );
+    } on HttpException catch (e) {
+      print('📡 Error HTTP en $endpoint: $e');
+      return ApiResponse<T>(
+        success: false,
+        error: 'Error de comunicación con el servidor: ${e.message}',
+      );
     } catch (e) {
-      return ApiResponse<T>(success: false, error: 'Error de conexión: $e');
+      print('❌ Error inesperado en $endpoint: $e');
+      return ApiResponse<T>(
+        success: false,
+        error: 'Error de conexión: ${e.toString()}',
+      );
     }
   }
 
@@ -479,34 +516,44 @@ class AuthService {
     String method = 'GET',
     Map<String, dynamic>? body,
     T Function(dynamic)? fromJson,
+    Duration? timeout,
   }) async {
-    final baseUrl = await IPDetection.getBaseUrl();
+    final baseUrl = ApiConfig.getBaseUrl();
     final url = Uri.parse('$baseUrl$endpoint');
     final headers = _defaultHeaders;
+    final requestTimeout = timeout ?? const Duration(seconds: 15);
 
     try {
       http.Response response;
 
       switch (method.toUpperCase()) {
         case 'GET':
-          response = await http.get(url, headers: headers);
+          response = await http
+              .get(url, headers: headers)
+              .timeout(requestTimeout);
           break;
         case 'POST':
-          response = await http.post(
-            url,
-            headers: headers,
-            body: body != null ? jsonEncode(body) : null,
-          );
+          response = await http
+              .post(
+                url,
+                headers: headers,
+                body: body != null ? jsonEncode(body) : null,
+              )
+              .timeout(requestTimeout);
           break;
         case 'PUT':
-          response = await http.put(
-            url,
-            headers: headers,
-            body: body != null ? jsonEncode(body) : null,
-          );
+          response = await http
+              .put(
+                url,
+                headers: headers,
+                body: body != null ? jsonEncode(body) : null,
+              )
+              .timeout(requestTimeout);
           break;
         case 'DELETE':
-          response = await http.delete(url, headers: headers);
+          response = await http
+              .delete(url, headers: headers)
+              .timeout(requestTimeout);
           break;
         default:
           throw Exception('Método HTTP no soportado: $method');
@@ -550,8 +597,32 @@ class AuthService {
           message: responseData['message'],
         );
       }
+    } on TimeoutException catch (e) {
+      print('⏱️ Timeout en petición a $endpoint: $e');
+      return ApiResponse<T>(
+        success: false,
+        error:
+            'Tiempo de espera agotado. Verifica tu conexión a internet y que el servidor esté disponible en $baseUrl',
+      );
+    } on SocketException catch (e) {
+      print('🌐 Error de conexión a $endpoint: $e');
+      return ApiResponse<T>(
+        success: false,
+        error:
+            'No se pudo conectar al servidor. Verifica que el backend esté corriendo en $baseUrl',
+      );
+    } on HttpException catch (e) {
+      print('📡 Error HTTP en $endpoint: $e');
+      return ApiResponse<T>(
+        success: false,
+        error: 'Error de comunicación con el servidor: ${e.message}',
+      );
     } catch (e) {
-      return ApiResponse<T>(success: false, error: 'Error de conexión: $e');
+      print('❌ Error inesperado en $endpoint: $e');
+      return ApiResponse<T>(
+        success: false,
+        error: 'Error de conexión: ${e.toString()}',
+      );
     }
   }
 
@@ -572,6 +643,19 @@ class AuthService {
         // Guardar tokens
         await saveToken(loginResponse.access);
         await saveRefreshToken(loginResponse.refresh);
+
+        // Registrar token FCM en el backend después del login exitoso
+        try {
+          final notificationService = NotificationService();
+          final baseUrl = ApiConfig.getBaseUrl();
+          await notificationService.sendTokenToBackend(
+            baseUrl,
+            loginResponse.access,
+          );
+        } catch (e) {
+          // No fallar el login si falla el registro del token
+          print('⚠️ Error registrando token FCM: $e');
+        }
 
         return ApiResponse<LoginResponse>(
           success: true,
@@ -889,27 +973,10 @@ class AuthService {
     );
   }
 
-  // ===== MÉTODOS DE DETECCIÓN DE IP =====
-
-  // Obtener información del entorno actual
-  Future<Map<String, dynamic>> getEnvironmentInfo() async {
-    return await IPDetection.getEnvironmentInfo();
-  }
-
-  // Forzar nueva detección de IP (útil para cambios de red)
-  Future<String> forceIPDetection() async {
-    return await IPDetection.forceDetection();
-  }
-
-  // Forzar localhost (útil para desarrollo)
-  Future<String> forceLocalhost() async {
-    return await IPDetection.forceLocalhost();
-  }
-
   // Verificar conectividad con el backend
   Future<bool> checkBackendConnection() async {
     try {
-      final baseUrl = await IPDetection.getBaseUrl();
+      final baseUrl = ApiConfig.getBaseUrl();
       final response = await http
           .get(
             Uri.parse('$baseUrl/api/auth/login/'),
@@ -922,21 +989,5 @@ class AuthService {
     } catch (e) {
       return false;
     }
-  }
-
-  // Mostrar información del entorno en un toast
-  Future<void> showEnvironmentInfo() async {
-    final envInfo = await getEnvironmentInfo();
-    final isConnected = await checkBackendConnection();
-
-    final message =
-        '''
-Entorno: ${envInfo['isCloud'] ? 'Nube' : 'Local'}
-URL: ${envInfo['baseUrl']}
-Plataforma: ${envInfo['platform']}
-Conectado: ${isConnected ? 'Sí' : 'No'}
-''';
-
-    showSuccessToast(message);
   }
 }

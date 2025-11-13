@@ -1,9 +1,11 @@
 import 'dart:async';
+import 'dart:convert';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 
 /// Servicio centralizado para gestión de notificaciones push
 /// Maneja FCM (Firebase Cloud Messaging) y notificaciones locales
@@ -194,7 +196,44 @@ class NotificationService {
     }
   }
 
-  /// Muestra una notificación local
+  /// Muestra una notificación local (método público para uso externo)
+  Future<void> showLocalNotification({
+    required String title,
+    required String body,
+    Map<String, dynamic>? data,
+  }) async {
+    const androidDetails = AndroidNotificationDetails(
+      'smartsales365_channel',
+      'SmartSales365 Notifications',
+      channelDescription: 'Notificaciones de SmartSales365',
+      importance: Importance.high,
+      priority: Priority.high,
+      icon: '@mipmap/ic_launcher',
+      enableVibration: true,
+      playSound: true,
+    );
+
+    const iosDetails = DarwinNotificationDetails(
+      presentAlert: true,
+      presentBadge: true,
+      presentSound: true,
+    );
+
+    const details = NotificationDetails(
+      android: androidDetails,
+      iOS: iosDetails,
+    );
+
+    await _localNotifications.show(
+      DateTime.now().millisecondsSinceEpoch.remainder(100000),
+      title,
+      body,
+      details,
+      payload: data?.toString(),
+    );
+  }
+
+  /// Muestra una notificación local desde un RemoteMessage
   Future<void> _showLocalNotification(RemoteMessage message) async {
     const androidDetails = AndroidNotificationDetails(
       'smartsales365_channel',
@@ -253,21 +292,28 @@ class NotificationService {
     }
 
     try {
-      print('📤 Enviando token al backend...');
+      print('📤 Enviando token FCM al backend...');
 
-      // TODO: Implementar llamada HTTP al backend
-      // Ejemplo:
-      // final response = await http.post(
-      //   Uri.parse('$apiUrl/api/notifications/register-token/'),
-      //   headers: {
-      //     'Authorization': 'Bearer $authToken',
-      //     'Content-Type': 'application/json',
-      //   },
-      //   body: jsonEncode({'fcm_token': _fcmToken}),
-      // );
+      final response = await http.post(
+        Uri.parse('$apiUrl/api/notifications/tokens/register/'),
+        headers: {
+          'Authorization': 'Bearer $authToken',
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode({
+          'token': _fcmToken,
+          'device_type': 'android', // TODO: Detectar iOS/Android dinámicamente
+          'device_name': 'Mobile Device', // TODO: Obtener nombre real del dispositivo
+        }),
+      );
 
-      print('✅ Token enviado al backend');
-      return true;
+      if (response.statusCode == 201 || response.statusCode == 200) {
+        print('✅ Token FCM registrado exitosamente en el backend');
+        return true;
+      } else {
+        print('❌ Error registrando token: ${response.statusCode} - ${response.body}');
+        return false;
+      }
     } catch (e) {
       print('❌ Error enviando token al backend: $e');
       return false;

@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-import 'package:shared_preferences/shared_preferences.dart';
 import 'auth_service.dart';
+import '../config/api_config.dart';
 
 // Modelos
 class ItemPedidoDetalle {
@@ -26,12 +26,16 @@ class ItemPedidoDetalle {
 
   factory ItemPedidoDetalle.fromJson(Map<String, dynamic> json) {
     return ItemPedidoDetalle(
-      id: json['id'],
-      nombreProducto: json['nombre_producto'],
+      id: json['id'] ?? 0,
+      nombreProducto: json['nombre_producto'] ?? '',
       sku: json['sku'],
-      precioUnitario: double.parse(json['precio_unitario'].toString()),
-      cantidad: json['cantidad'],
-      subtotal: double.parse(json['subtotal'].toString()),
+      precioUnitario: json['precio_unitario'] != null
+          ? double.parse(json['precio_unitario'].toString())
+          : 0.0,
+      cantidad: json['cantidad'] ?? 0,
+      subtotal: json['subtotal'] != null
+          ? double.parse(json['subtotal'].toString())
+          : 0.0,
     );
   }
 }
@@ -65,15 +69,15 @@ class DireccionEnvio {
 
   factory DireccionEnvio.fromJson(Map<String, dynamic> json) {
     return DireccionEnvio(
-      id: json['id'],
-      nombreCompleto: json['nombre_completo'],
-      telefono: json['telefono'],
+      id: json['id'] ?? 0,
+      nombreCompleto: json['nombre_completo'] ?? '',
+      telefono: json['telefono'] ?? '',
       email: json['email'],
-      direccion: json['direccion'],
+      direccion: json['direccion'] ?? '',
       direccion2: json['direccion_2'],
-      ciudad: json['ciudad'],
+      ciudad: json['ciudad'] ?? '',
       departamento: json['departamento'],
-      codigoPostal: json['codigo_postal'],
+      codigoPostal: json['codigo_postal'] ?? '',
       pais: json['pais'],
       referencia: json['referencia'],
     );
@@ -138,29 +142,46 @@ class Pedido {
 
   factory Pedido.fromJson(Map<String, dynamic> json) {
     return Pedido(
-      id: json['id'],
-      numeroPedido: json['numero_pedido'],
+      id: json['id'] ?? 0,
+      numeroPedido: json['numero_pedido'] ?? '',
       usuario: json['usuario'],
-      estado: json['estado'],
-      subtotal: double.parse(json['subtotal'].toString()),
-      descuento: double.parse(json['descuento'].toString()),
-      impuestos: double.parse(json['impuestos'].toString()),
-      costoEnvio: double.parse(json['costo_envio'].toString()),
-      total: double.parse(json['total'].toString()),
+      estado: json['estado'] ?? 'PENDIENTE',
+      subtotal: json['subtotal'] != null
+          ? double.parse(json['subtotal'].toString())
+          : 0.0,
+      descuento: json['descuento'] != null
+          ? double.parse(json['descuento'].toString())
+          : 0.0,
+      impuestos: json['impuestos'] != null
+          ? double.parse(json['impuestos'].toString())
+          : 0.0,
+      costoEnvio: json['costo_envio'] != null
+          ? double.parse(json['costo_envio'].toString())
+          : 0.0,
+      total: json['total'] != null
+          ? double.parse(json['total'].toString())
+          : 0.0,
       totalItems: json['total_items'],
       notasCliente: json['notas_cliente'],
-      creado: json['creado'],
-      actualizado: json['actualizado'],
+      creado: json['creado'] ?? DateTime.now().toIso8601String(),
+      actualizado: json['actualizado'] ?? DateTime.now().toIso8601String(),
       pagadoEn: json['pagado_en'],
       enviadoEn: json['enviado_en'],
       entregadoEn: json['entregado_en'],
-      items: json['items'] != null
+      items: json['items'] != null && json['items'] is List
           ? (json['items'] as List)
-                .map((item) => ItemPedidoDetalle.fromJson(item))
+                .map(
+                  (item) =>
+                      ItemPedidoDetalle.fromJson(item as Map<String, dynamic>),
+                )
                 .toList()
           : null,
-      direccionEnvio: json['direccion_envio'] != null
-          ? DireccionEnvio.fromJson(json['direccion_envio'])
+      direccionEnvio:
+          json['direccion_envio'] != null &&
+              json['direccion_envio'] is Map<String, dynamic>
+          ? DireccionEnvio.fromJson(
+              json['direccion_envio'] as Map<String, dynamic>,
+            )
           : null,
     );
   }
@@ -220,7 +241,8 @@ class CrearPedidoRequest {
   Map<String, dynamic> toJson() {
     return {
       if (notasCliente != null) 'notas_cliente': notasCliente,
-      'direccion_envio': direccionEnvio.toJson(),
+      'direccion': direccionEnvio
+          .toJson(), // Backend espera 'direccion', no 'direccion_envio'
     };
   }
 }
@@ -239,23 +261,60 @@ class PedidosResponse {
   });
 
   factory PedidosResponse.fromJson(Map<String, dynamic> json) {
-    return PedidosResponse(
-      count: json['count'],
-      next: json['next'],
-      previous: json['previous'],
-      results: (json['results'] as List)
-          .map((p) => Pedido.fromJson(p))
-          .toList(),
-    );
+    try {
+      // Validar que 'results' existe y es una lista
+      if (!json.containsKey('results')) {
+        print('[PEDIDOS] ⚠️ La respuesta no contiene "results"');
+        return PedidosResponse(
+          count: json['count'] ?? 0,
+          next: json['next'],
+          previous: json['previous'],
+          results: [],
+        );
+      }
+
+      final resultsList = json['results'];
+      if (resultsList is! List) {
+        print(
+          '[PEDIDOS] ⚠️ "results" no es una lista, es: ${resultsList.runtimeType}',
+        );
+        return PedidosResponse(
+          count: json['count'] ?? 0,
+          next: json['next'],
+          previous: json['previous'],
+          results: [],
+        );
+      }
+
+      final pedidos = <Pedido>[];
+      for (var i = 0; i < resultsList.length; i++) {
+        try {
+          final pedidoJson = resultsList[i] as Map<String, dynamic>;
+          pedidos.add(Pedido.fromJson(pedidoJson));
+        } catch (e) {
+          print('[PEDIDOS] ⚠️ Error parseando pedido $i: $e');
+          // Continuar con los demás pedidos
+        }
+      }
+
+      return PedidosResponse(
+        count: json['count'] ?? pedidos.length,
+        next: json['next'],
+        previous: json['previous'],
+        results: pedidos,
+      );
+    } catch (e) {
+      print('[PEDIDOS] ❌ Error en PedidosResponse.fromJson: $e');
+      rethrow;
+    }
   }
 }
 
 class PedidosService {
   final AuthService _authService = AuthService();
 
-  Future<String> _getBaseUrl() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getString('api_url') ?? 'http://localhost:8000';
+  String _getBaseUrl() {
+    return ApiConfig.getBaseUrl();
   }
 
   Future<Map<String, String>> _getHeaders() async {
@@ -279,7 +338,7 @@ class PedidosService {
     int page = 1,
   }) async {
     try {
-      final baseUrl = await _getBaseUrl();
+      final baseUrl = _getBaseUrl();
       final headers = await _getHeaders();
 
       final queryParams = <String, String>{
@@ -313,7 +372,7 @@ class PedidosService {
   // Obtener mis pedidos
   Future<PedidosResponse> getMisPedidos({String? estado, int page = 1}) async {
     try {
-      final baseUrl = await _getBaseUrl();
+      final baseUrl = _getBaseUrl();
       final headers = await _getHeaders();
 
       final queryParams = <String, String>{
@@ -325,25 +384,93 @@ class PedidosService {
         '$baseUrl/api/ventas/pedidos/mis_pedidos/',
       ).replace(queryParameters: queryParams);
 
-      final response = await http.get(uri, headers: headers);
+      print('[PEDIDOS] Obteniendo mis pedidos desde: $uri');
+      print('[PEDIDOS] Headers: ${headers.keys}');
+
+      final response = await http
+          .get(uri, headers: headers)
+          .timeout(
+            const Duration(seconds: 15),
+            onTimeout: () {
+              throw Exception('Tiempo de espera agotado al cargar pedidos');
+            },
+          );
+
+      print('[PEDIDOS] Status code: ${response.statusCode}');
+      print('[PEDIDOS] Response body length: ${response.bodyBytes.length}');
 
       if (response.statusCode == 200) {
         final decodedBody = utf8.decode(response.bodyBytes);
+        print(
+          '[PEDIDOS] Response body: ${decodedBody.substring(0, decodedBody.length > 500 ? 500 : decodedBody.length)}...',
+        );
+
         final data = json.decode(decodedBody);
-        return PedidosResponse.fromJson(data);
+
+        // Validar que la respuesta tenga el formato esperado
+        if (data is! Map<String, dynamic>) {
+          throw Exception(
+            'La respuesta del servidor no tiene el formato esperado',
+          );
+        }
+
+        // Verificar si hay resultados
+        if (!data.containsKey('results')) {
+          print(
+            '[PEDIDOS] ⚠️ La respuesta no contiene "results", estructura: ${data.keys}',
+          );
+          // Si no hay 'results', puede ser que el backend devuelva directamente una lista
+          if (data.containsKey('count') && data['count'] == 0) {
+            print('[PEDIDOS] No hay pedidos (count = 0)');
+            return PedidosResponse(count: 0, results: []);
+          }
+          // Intentar parsear como lista directa
+          if (data is List) {
+            print('[PEDIDOS] La respuesta es una lista directa');
+            return PedidosResponse(
+              count: (data as List).length,
+              results: (data as List)
+                  .map((p) => Pedido.fromJson(p as Map<String, dynamic>))
+                  .toList(),
+            );
+          }
+          throw Exception('Formato de respuesta inesperado del servidor');
+        }
+
+        final responseObj = PedidosResponse.fromJson(data);
+        print(
+          '[PEDIDOS] ✅ Pedidos cargados: ${responseObj.count} total, ${responseObj.results.length} en esta página',
+        );
+        return responseObj;
+      } else if (response.statusCode == 401) {
+        throw Exception('Sesión expirada. Por favor, inicia sesión nuevamente');
+      } else if (response.statusCode == 403) {
+        throw Exception('No tienes permisos para ver pedidos');
+      } else if (response.statusCode == 404) {
+        throw Exception('El endpoint de pedidos no fue encontrado');
       } else {
-        throw Exception('Error al cargar pedidos: ${response.statusCode}');
+        final decodedBody = utf8.decode(response.bodyBytes);
+        final errorData = json.decode(decodedBody);
+        final errorMessage =
+            errorData['detail'] ??
+            errorData['error'] ??
+            errorData['message'] ??
+            'Error al cargar pedidos: ${response.statusCode}';
+        throw Exception(errorMessage);
       }
     } catch (e) {
-      print('Error en getMisPedidos: $e');
-      rethrow;
+      print('[PEDIDOS] ❌ Error en getMisPedidos: $e');
+      if (e is Exception) {
+        rethrow;
+      }
+      throw Exception('Error de conexión: $e');
     }
   }
 
   // Obtener detalle de un pedido
   Future<Pedido> getPedido(int pedidoId) async {
     try {
-      final baseUrl = await _getBaseUrl();
+      final baseUrl = _getBaseUrl();
       final headers = await _getHeaders();
 
       final response = await http.get(
@@ -367,7 +494,7 @@ class PedidosService {
   // Crear un nuevo pedido desde el carrito
   Future<Pedido> crearPedido(CrearPedidoRequest request) async {
     try {
-      final baseUrl = await _getBaseUrl();
+      final baseUrl = _getBaseUrl();
       final headers = await _getHeaders();
 
       final response = await http.post(
@@ -379,7 +506,17 @@ class PedidosService {
       if (response.statusCode == 201) {
         final decodedBody = utf8.decode(response.bodyBytes);
         final data = json.decode(decodedBody);
-        return Pedido.fromJson(data['pedido']);
+
+        // El backend devuelve datos básicos del pedido, necesitamos obtener el detalle completo
+        // El serializer devuelve: {id, numero_pedido, estado, total, subtotal, items_count}
+        final pedidoId = data['id'];
+        if (pedidoId != null) {
+          // Obtener el detalle completo del pedido
+          print('[PEDIDOS] Obteniendo detalle completo del pedido $pedidoId');
+          return await getPedido(pedidoId);
+        } else {
+          throw Exception('No se recibió el ID del pedido creado');
+        }
       } else {
         final decodedBody = utf8.decode(response.bodyBytes);
         final error = json.decode(decodedBody);
@@ -394,7 +531,7 @@ class PedidosService {
   // Cancelar un pedido
   Future<Pedido> cancelarPedido(int pedidoId, String motivo) async {
     try {
-      final baseUrl = await _getBaseUrl();
+      final baseUrl = _getBaseUrl();
       final headers = await _getHeaders();
 
       final body = {'motivo': motivo};
@@ -427,7 +564,7 @@ class PedidosService {
     String? notasInternas,
   }) async {
     try {
-      final baseUrl = await _getBaseUrl();
+      final baseUrl = _getBaseUrl();
       final headers = await _getHeaders();
 
       final body = {

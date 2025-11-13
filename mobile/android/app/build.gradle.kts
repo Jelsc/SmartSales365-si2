@@ -26,7 +26,8 @@ android {
         applicationId = "com.example.mobile"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
-        minSdk = flutter.minSdkVersion
+        // minSdk 21 es requerido por flutter_stripe (Stripe Payment Sheet)
+        minSdk = maxOf(flutter.minSdkVersion, 21)
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
@@ -47,4 +48,8 @@ flutter {
 
 dependencies {
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.0.4")
+    
+    // MaterialComponents es requerido por flutter_stripe (Stripe Payment Sheet)
+    // Asegura que Theme.MaterialComponents esté disponible en styles.xml
+    implementation("com.google.android.material:material:1.11.0")
 }

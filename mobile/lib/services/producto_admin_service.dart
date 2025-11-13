@@ -1,6 +1,6 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-import '../utils/ip_detection.dart';
+import '../config/api_config.dart';
 import 'auth_service.dart';
 
 /// Servicio para gestionar productos desde el panel admin
@@ -15,7 +15,7 @@ class ProductoAdminService {
     String? busqueda,
   }) async {
     try {
-      final baseUrl = await IPDetection.getBaseUrl();
+      final baseUrl = ApiConfig.getBaseUrl();
       var url = '$baseUrl/api/productos/';
 
       // Agregar parámetros de filtro
@@ -68,7 +68,7 @@ class ProductoAdminService {
   /// Obtener un producto por ID
   Future<ApiResponse<Producto>> getProducto(int id) async {
     try {
-      final baseUrl = await IPDetection.getBaseUrl();
+      final baseUrl = ApiConfig.getBaseUrl();
       final url = '$baseUrl/api/productos/$id/';
 
       final token = await _authService.getToken();
@@ -114,7 +114,7 @@ class ProductoAdminService {
     bool destacado = false,
   }) async {
     try {
-      final baseUrl = await IPDetection.getBaseUrl();
+      final baseUrl = ApiConfig.getBaseUrl();
       final url = '$baseUrl/api/productos/';
 
       final token = await _authService.getToken();
@@ -174,7 +174,7 @@ class ProductoAdminService {
     bool? destacado,
   }) async {
     try {
-      final baseUrl = await IPDetection.getBaseUrl();
+      final baseUrl = ApiConfig.getBaseUrl();
       final url = '$baseUrl/api/productos/$id/';
 
       final token = await _authService.getToken();
@@ -222,7 +222,7 @@ class ProductoAdminService {
   /// Eliminar un producto
   Future<ApiResponse<void>> eliminarProducto(int id) async {
     try {
-      final baseUrl = await IPDetection.getBaseUrl();
+      final baseUrl = ApiConfig.getBaseUrl();
       final url = '$baseUrl/api/productos/$id/';
 
       final token = await _authService.getToken();
@@ -257,7 +257,7 @@ class ProductoAdminService {
   /// Obtener categorías disponibles
   Future<ApiResponse<List<Categoria>>> getCategorias() async {
     try {
-      final baseUrl = await IPDetection.getBaseUrl();
+      final baseUrl = ApiConfig.getBaseUrl();
       final url = '$baseUrl/api/categorias/';
 
       final token = await _authService.getToken();

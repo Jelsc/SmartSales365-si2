@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_stripe/flutter_stripe.dart';
 import '../../services/carrito_service.dart';
 import '../../services/pedidos_service.dart';
 import '../../services/payment_service.dart';
+import '../../services/notification_service.dart';
 import 'order_confirmation_screen.dart';
 
 class CheckoutScreen extends StatefulWidget {
@@ -487,8 +487,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       );
 
       final request = CrearPedidoRequest(
-        direccion: direccion,
-        notasCliente: _notasController.text.trim(),
+        direccionEnvio: direccion,
+        notasCliente: _notasController.text.trim().isNotEmpty
+            ? _notasController.text.trim()
+            : null,
       );
 
       final pedido = await _pedidosService.crearPedido(request);
@@ -534,11 +536,44 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
       print('[CHECKOUT] ✅ Pago confirmado exitosamente');
 
-      // 5. Vaciar el carrito (el pago fue exitoso)
-      await _carritoService.vaciarCarrito();
-      print('[CHECKOUT] ✅ Carrito vaciado');
+      // 5. Enviar notificación push de pago exitoso (el backend también puede enviar una)
+      try {
+        final notificationService = NotificationService();
+        await notificationService.showLocalNotification(
+          title: '¡Pago Exitoso!',
+          body: 'Tu pedido ${pedido.numeroPedido} ha sido confirmado',
+          data: {
+            'tipo': 'pago_exitoso',
+            'pedido_id': pedido.id.toString(),
+            'numero_pedido': pedido.numeroPedido,
+          },
+        );
+      } catch (e) {
+        print('[CHECKOUT] ⚠️ Error mostrando notificación: $e');
+      }
 
-      // 6. Navegar a pantalla de confirmación
+      // 6. Vaciar el carrito (el pago fue exitoso)
+      try {
+        await _carritoService.vaciarCarrito();
+        print('[CHECKOUT] ✅ Carrito vaciado');
+      } catch (e) {
+        // No fallar el flujo si falla vaciar el carrito (ya se procesó el pago)
+        print('[CHECKOUT] ⚠️ Advertencia: Error al vaciar carrito: $e');
+        // El carrito puede estar vacío de todas formas si el backend lo limpió
+      }
+
+      // 6. Mostrar mensaje de éxito
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Pago procesado exitosamente'),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+
+      // 7. Navegar a pantalla de confirmación
       if (mounted) {
         Navigator.pushReplacement(
           context,

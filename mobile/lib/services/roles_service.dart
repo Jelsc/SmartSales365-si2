@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
-import '../utils/ip_detection.dart';
+import '../config/api_config.dart';
 
 class Rol {
   final int id;
@@ -70,7 +70,7 @@ class RolesService {
 
   Future<ApiResponse<List<Rol>>> getRoles({String? busqueda}) async {
     try {
-      final baseUrl = await IPDetection.getBaseUrl();
+      final baseUrl = ApiConfig.getBaseUrl();
       final Map<String, String> queryParams = {};
 
       if (busqueda != null && busqueda.isNotEmpty) {
@@ -111,7 +111,7 @@ class RolesService {
 
   Future<ApiResponse<Rol>> getRol(int id) async {
     try {
-      final baseUrl = await IPDetection.getBaseUrl();
+      final baseUrl = ApiConfig.getBaseUrl();
       final response = await http.get(
         Uri.parse('$baseUrl/api/roles/$id/'),
         headers: await _getHeaders(),

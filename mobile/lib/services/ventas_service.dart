@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
-import '../utils/ip_detection.dart';
+import '../config/api_config.dart';
 
 class ItemPedido {
   final int id;
@@ -236,7 +236,7 @@ class VentasService {
     String? busqueda,
   }) async {
     try {
-      final baseUrl = await IPDetection.getBaseUrl();
+      final baseUrl = ApiConfig.getBaseUrl();
       final Map<String, String> queryParams = {};
 
       if (estado != null && estado.isNotEmpty) {
@@ -289,7 +289,7 @@ class VentasService {
 
   Future<ApiResponse<Pedido>> getPedido(int id) async {
     try {
-      final baseUrl = await IPDetection.getBaseUrl();
+      final baseUrl = ApiConfig.getBaseUrl();
       final response = await http.get(
         Uri.parse('$baseUrl/api/ventas/pedidos/$id/detalle/'),
         headers: await _getHeaders(),
@@ -315,7 +315,7 @@ class VentasService {
     String nuevoEstado,
   ) async {
     try {
-      final baseUrl = await IPDetection.getBaseUrl();
+      final baseUrl = ApiConfig.getBaseUrl();
       final response = await http.patch(
         Uri.parse('$baseUrl/api/ventas/pedidos/$id/actualizar_estado/'),
         headers: await _getHeaders(),

@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
-import '../utils/ip_detection.dart';
+import '../config/api_config.dart';
 
 class Conductor {
   final int id;
@@ -70,8 +70,8 @@ class ApiResponse<T> {
 }
 
 class ConductoresService {
-  Future<String> _getBaseUrl() async {
-    final baseUrl = await IPDetection.getBaseUrl();
+  String _getBaseUrl() {
+    final baseUrl = ApiConfig.getBaseUrl();
     return '$baseUrl/api/conductores';
   }
 
@@ -95,7 +95,7 @@ class ConductoresService {
     String? busqueda,
   }) async {
     try {
-      final baseUrl = await _getBaseUrl();
+      final baseUrl = _getBaseUrl();
       final headers = await _getHeaders();
 
       final queryParams = <String, String>{};
@@ -149,7 +149,7 @@ class ConductoresService {
 
   Future<ApiResponse<Conductor>> getConductor(int id) async {
     try {
-      final baseUrl = await _getBaseUrl();
+      final baseUrl = _getBaseUrl();
       final headers = await _getHeaders();
       final response = await http.get(
         Uri.parse('$baseUrl/$id/'),

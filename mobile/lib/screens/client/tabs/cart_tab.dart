@@ -3,13 +3,15 @@ import '../../../services/carrito_service.dart';
 import '../../client/checkout_screen.dart';
 
 class CartTab extends StatefulWidget {
-  const CartTab({super.key});
+  final VoidCallback? onVisible;
+
+  const CartTab({super.key, this.onVisible});
 
   @override
-  State<CartTab> createState() => _CartTabState();
+  State<CartTab> createState() => CartTabState();
 }
 
-class _CartTabState extends State<CartTab> {
+class CartTabState extends State<CartTab> with AutomaticKeepAliveClientMixin {
   final CarritoService _carritoService = CarritoService();
 
   Carrito? _carrito;
@@ -17,15 +19,36 @@ class _CartTabState extends State<CartTab> {
   bool _isUpdating = false;
 
   @override
+  bool get wantKeepAlive => true;
+
+  @override
   void initState() {
     super.initState();
     _cargarCarrito();
   }
 
+  // Método público para recargar desde fuera
+  void recargarCarrito() {
+    if (mounted && !_isLoading && !_isUpdating) {
+      _cargarCarrito();
+    }
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Notificar que el tab está visible
+    if (widget.onVisible != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        widget.onVisible?.call();
+      });
+    }
+  }
+
   Future<void> _cargarCarrito() async {
     setState(() => _isLoading = true);
     try {
-      final carrito = await _carritoService.obtenerMiCarrito();
+      final carrito = await _carritoService.obtenerCarrito();
       setState(() {
         _carrito = carrito;
         _isLoading = false;
@@ -49,7 +72,7 @@ class _CartTabState extends State<CartTab> {
 
     setState(() => _isUpdating = true);
     try {
-      await _carritoService.actualizarCantidad(itemId, nuevaCantidad);
+      await _carritoService.actualizarItem(itemId, nuevaCantidad);
       await _cargarCarrito();
     } catch (e) {
       print('Error al actualizar cantidad: $e');
@@ -172,6 +195,7 @@ class _CartTabState extends State<CartTab> {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context); // Necesario para AutomaticKeepAliveClientMixin
     if (_isLoading) {
       return const Center(child: CircularProgressIndicator());
     }
@@ -255,8 +279,17 @@ class _CartTabState extends State<CartTab> {
           const SizedBox(height: 32),
           ElevatedButton(
             onPressed: () {
-              // Cambiar a tab de productos (índice 1)
-              DefaultTabController.of(context).animateTo(1);
+              // El botón no puede cambiar tabs directamente desde aquí
+              // Se maneja desde el ClientHomeScreen
+              // Por ahora, simplemente mostramos un mensaje
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text(
+                    'Usa el menú inferior para navegar a Productos',
+                  ),
+                  duration: Duration(seconds: 2),
+                ),
+              );
             },
             style: ElevatedButton.styleFrom(
               padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
@@ -295,16 +328,38 @@ class _CartTabState extends State<CartTab> {
               decoration: BoxDecoration(
                 color: Colors.grey.shade100,
                 borderRadius: BorderRadius.circular(12),
-                image: producto.imagen != null && producto.imagen!.isNotEmpty
-                    ? DecorationImage(
-                        image: NetworkImage(producto.imagen!),
-                        fit: BoxFit.cover,
-                      )
-                    : null,
               ),
-              child: producto.imagen == null || producto.imagen!.isEmpty
-                  ? const Icon(Icons.shopping_bag, size: 40, color: Colors.blue)
-                  : null,
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: producto.imagen != null && producto.imagen!.isNotEmpty
+                    ? Image.network(
+                        producto.imagen!,
+                        fit: BoxFit.cover,
+                        loadingBuilder: (context, child, loadingProgress) {
+                          if (loadingProgress == null) return child;
+                          return Center(
+                            child: CircularProgressIndicator(
+                              value: loadingProgress.expectedTotalBytes != null
+                                  ? loadingProgress.cumulativeBytesLoaded /
+                                        loadingProgress.expectedTotalBytes!
+                                  : null,
+                            ),
+                          );
+                        },
+                        errorBuilder: (context, error, stackTrace) {
+                          return const Icon(
+                            Icons.shopping_bag,
+                            size: 40,
+                            color: Colors.blue,
+                          );
+                        },
+                      )
+                    : const Icon(
+                        Icons.shopping_bag,
+                        size: 40,
+                        color: Colors.blue,
+                      ),
+              ),
             ),
             const SizedBox(width: 12),
 

@@ -1,6 +1,9 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../services/auth_service.dart';
 import '../../navigation/app_router.dart';
+import '../../config/api_config.dart';
+import '../../config/api_url.dart';
 import 'register_screen.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -81,10 +84,31 @@ class _LoginScreenState extends State<LoginScreen> {
           );
         }
       } else {
-        _authService.showErrorToast(response.error ?? 'Error en el login');
+        final errorMsg = response.error ?? 'Error en el login';
+        _authService.showErrorToast(errorMsg);
+        
+        // Si es error de conexión, ofrecer configurar URL
+        if (errorMsg.contains('conexión') || 
+            errorMsg.contains('timeout') || 
+            errorMsg.contains('Tiempo de espera') ||
+            errorMsg.contains('servidor')) {
+          if (mounted) {
+            _showConnectionErrorDialog();
+          }
+        }
       }
     } catch (e) {
+      final errorStr = e.toString();
       _authService.showErrorToast('Error inesperado: $e');
+      
+      // Si es error de conexión, ofrecer configurar URL
+      if (errorStr.contains('SocketException') || 
+          errorStr.contains('TimeoutException') ||
+          errorStr.contains('conexión')) {
+        if (mounted) {
+          _showConnectionErrorDialog();
+        }
+      }
     } finally {
       if (mounted) {
         setState(() {
@@ -151,15 +175,11 @@ class _LoginScreenState extends State<LoginScreen> {
               onSelected: (value) async {
                 switch (value) {
                   case 'info':
-                    await _authService.showEnvironmentInfo();
+                    final baseUrl = ApiConfig.getBaseUrl();
+                    _authService.showSuccessToast('URL actual: $baseUrl');
                     break;
-                  case 'force':
-                    final newUrl = await _authService.forceIPDetection();
-                    _authService.showSuccessToast('Nueva detección: $newUrl');
-                    break;
-                  case 'localhost':
-                    await _authService.forceLocalhost();
-                    _authService.showSuccessToast('Forzando localhost');
+                  case 'config':
+                    _showUrlConfigDialog();
                     break;
                 }
               },
@@ -175,22 +195,12 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                 ),
                 const PopupMenuItem<String>(
-                  value: 'force',
+                  value: 'config',
                   child: Row(
                     children: [
-                      Icon(Icons.refresh, size: 20, color: Colors.orange),
+                      Icon(Icons.settings, size: 20, color: Colors.purple),
                       SizedBox(width: 12),
-                      Text('Forzar Detección', style: TextStyle(fontSize: 14)),
-                    ],
-                  ),
-                ),
-                const PopupMenuItem<String>(
-                  value: 'localhost',
-                  child: Row(
-                    children: [
-                      Icon(Icons.home, size: 20, color: Colors.green),
-                      SizedBox(width: 12),
-                      Text('Forzar Localhost', style: TextStyle(fontSize: 14)),
+                      Text('Configurar URL', style: TextStyle(fontSize: 14)),
                     ],
                   ),
                 ),
@@ -435,7 +445,29 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                   ),
 
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 16),
+
+                  // Botón rápido para configurar URL (solo visible si hay problemas)
+                  Container(
+                    margin: const EdgeInsets.only(bottom: 8),
+                    child: TextButton.icon(
+                      onPressed: () => _showUrlConfigDialog(),
+                      icon: const Icon(Icons.settings, size: 18),
+                      label: const Text(
+                        'Configurar URL del Backend',
+                        style: TextStyle(fontSize: 13),
+                      ),
+                      style: TextButton.styleFrom(
+                        foregroundColor: Colors.grey.shade700,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 8,
+                        ),
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(height: 8),
 
                   // Botón de login con gradiente
                   Container(
@@ -593,6 +625,122 @@ class _LoginScreenState extends State<LoginScreen> {
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  /// Muestra un diálogo con la información de la IP actual
+  void _showUrlConfigDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.info_outline, color: Colors.blue),
+            SizedBox(width: 8),
+            Text('Configuración de IP'),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.blue.shade50,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.blue.shade200),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'IP Actual:',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: Colors.blue.shade700,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    ApiUrl.baseUrl,
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontFamily: 'monospace',
+                      color: Colors.blue.shade900,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'Para cambiar la IP:',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              '1. Abre el archivo:\n'
+              '   mobile/lib/config/api_url.dart\n\n'
+              '2. Cambia el valor de serverIP\n\n'
+              '3. Reinicia la app',
+              style: TextStyle(fontSize: 13),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cerrar'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Muestra un diálogo cuando hay error de conexión
+  void _showConnectionErrorDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Error de Conexión'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'No se pudo conectar al servidor.',
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'IP configurada: ${ApiUrl.baseUrl}',
+              style: const TextStyle(
+                fontFamily: 'monospace',
+                fontSize: 12,
+              ),
+            ),
+            const SizedBox(height: 12),
+            const Text(
+              'Para cambiar la IP, edita:\n'
+              'mobile/lib/config/api_url.dart',
+              style: TextStyle(fontSize: 12),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cerrar'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _showUrlConfigDialog();
+            },
+            child: const Text('Ver detalles'),
+          ),
+        ],
       ),
     );
   }

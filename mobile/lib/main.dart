@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
-import 'package:flutter_stripe/flutter_stripe.dart';
 import 'services/auth_service.dart';
 import 'services/notification_service.dart';
 import 'services/payment_service.dart';
@@ -11,7 +10,7 @@ import 'screens/onboarding_screen.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/client/client_home_screen.dart';
 import 'screens/admin/admin_home_screen.dart';
-import 'utils/ip_detection.dart';
+import 'config/api_config.dart';
 
 /// Handler para notificaciones en background (debe estar en nivel superior)
 @pragma('vm:entry-point')
@@ -26,9 +25,7 @@ void main() async {
   try {
     // Detectar y guardar la URL del backend PRIMERO
     print('🔍 Detectando URL del backend...');
-    final baseUrl = await IPDetection.getBaseUrl();
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('api_url', baseUrl);
+    final baseUrl = ApiConfig.getBaseUrl();
     print('✅ URL del backend configurada: $baseUrl');
 
     // Inicializar Firebase

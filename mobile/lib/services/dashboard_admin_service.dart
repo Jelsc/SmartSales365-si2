@@ -1,6 +1,6 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-import '../utils/ip_detection.dart';
+import '../config/api_config.dart';
 import 'auth_service.dart';
 
 /// Servicio para gestionar estadísticas del dashboard admin
@@ -10,7 +10,7 @@ class DashboardAdminService {
   /// Obtener estadísticas generales
   Future<ApiResponse<DashboardStats>> getEstadisticas() async {
     try {
-      final baseUrl = await IPDetection.getBaseUrl();
+      final baseUrl = ApiConfig.getBaseUrl();
 
       final token = await _authService.getToken();
       if (token == null) {
@@ -132,7 +132,7 @@ class DashboardAdminService {
   /// Obtener productos con bajo stock
   Future<ApiResponse<List<ProductoBajoStock>>> getProductosBajoStock() async {
     try {
-      final baseUrl = await IPDetection.getBaseUrl();
+      final baseUrl = ApiConfig.getBaseUrl();
       final url = '$baseUrl/api/productos/?activo=true';
 
       final token = await _authService.getToken();
@@ -177,7 +177,7 @@ class DashboardAdminService {
   /// Obtener actividades recientes
   Future<ApiResponse<List<ActividadReciente>>> getActividadesRecientes() async {
     try {
-      final baseUrl = await IPDetection.getBaseUrl();
+      final baseUrl = ApiConfig.getBaseUrl();
       final url = '$baseUrl/api/bitacora/?ordering=-fecha_hora&page_size=10';
 
       final token = await _authService.getToken();

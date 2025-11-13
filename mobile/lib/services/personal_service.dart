@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
-import '../utils/ip_detection.dart';
+import '../config/api_config.dart';
 
 class Personal {
   final int id;
@@ -64,8 +64,8 @@ class ApiResponse<T> {
 }
 
 class PersonalService {
-  Future<String> _getBaseUrl() async {
-    final baseUrl = await IPDetection.getBaseUrl();
+  String _getBaseUrl() {
+    final baseUrl = ApiConfig.getBaseUrl();
     return '$baseUrl/api/personal';
   }
 
@@ -88,7 +88,7 @@ class PersonalService {
     String? busqueda,
   }) async {
     try {
-      final baseUrl = await _getBaseUrl();
+      final baseUrl = _getBaseUrl();
       final headers = await _getHeaders();
 
       final queryParams = <String, String>{};
@@ -139,7 +139,7 @@ class PersonalService {
 
   Future<ApiResponse<Personal>> getPersonalById(int id) async {
     try {
-      final baseUrl = await _getBaseUrl();
+      final baseUrl = _getBaseUrl();
       final headers = await _getHeaders();
       final response = await http.get(
         Uri.parse('$baseUrl/$id/'),

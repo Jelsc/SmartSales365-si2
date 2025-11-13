@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-import 'package:shared_preferences/shared_preferences.dart';
 import 'auth_service.dart';
+import '../config/api_config.dart';
 
 // Modelos
 class ProductoDetalle {
@@ -110,9 +110,8 @@ class Carrito {
 class CarritoService {
   final AuthService _authService = AuthService();
 
-  Future<String> _getBaseUrl() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getString('api_url') ?? 'http://localhost:8000';
+  String _getBaseUrl() {
+    return ApiConfig.getBaseUrl();
   }
 
   Future<Map<String, String>> _getHeaders() async {
@@ -129,7 +128,7 @@ class CarritoService {
   // Obtener el carrito actual
   Future<Carrito> obtenerCarrito() async {
     try {
-      final baseUrl = await _getBaseUrl();
+      final baseUrl = _getBaseUrl();
       final headers = await _getHeaders();
 
       final response = await http.get(
@@ -157,7 +156,7 @@ class CarritoService {
     int? varianteId,
   }) async {
     try {
-      final baseUrl = await _getBaseUrl();
+      final baseUrl = _getBaseUrl();
       final headers = await _getHeaders();
 
       final body = {
@@ -190,7 +189,7 @@ class CarritoService {
   // Actualizar cantidad de un item
   Future<Carrito> actualizarItem(int itemId, int cantidad) async {
     try {
-      final baseUrl = await _getBaseUrl();
+      final baseUrl = _getBaseUrl();
       final headers = await _getHeaders();
 
       final body = {'cantidad': cantidad};
@@ -219,7 +218,7 @@ class CarritoService {
   // Eliminar item del carrito
   Future<Carrito> eliminarItem(int itemId) async {
     try {
-      final baseUrl = await _getBaseUrl();
+      final baseUrl = _getBaseUrl();
       final headers = await _getHeaders();
 
       final response = await http.delete(
@@ -243,10 +242,11 @@ class CarritoService {
   // Vaciar carrito
   Future<Carrito> vaciarCarrito() async {
     try {
-      final baseUrl = await _getBaseUrl();
+      final baseUrl = _getBaseUrl();
       final headers = await _getHeaders();
 
-      final response = await http.post(
+      // El backend espera DELETE, no POST
+      final response = await http.delete(
         Uri.parse('$baseUrl/api/carrito/vaciar/'),
         headers: headers,
       );
@@ -256,7 +256,11 @@ class CarritoService {
         final data = json.decode(decodedBody);
         return Carrito.fromJson(data['carrito']);
       } else {
-        throw Exception('Error al vaciar carrito: ${response.statusCode}');
+        final decodedBody = utf8.decode(response.bodyBytes);
+        final error = json.decode(decodedBody);
+        throw Exception(
+          error['error'] ?? 'Error al vaciar carrito: ${response.statusCode}',
+        );
       }
     } catch (e) {
       print('Error en vaciarCarrito: $e');

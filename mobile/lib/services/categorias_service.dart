@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
-import '../utils/ip_detection.dart';
+import '../config/api_config.dart';
 
 class Categoria {
   final int id;
@@ -49,8 +49,8 @@ class ApiResponse<T> {
 }
 
 class CategoriasService {
-  Future<String> _getBaseUrl() async {
-    final baseUrl = await IPDetection.getBaseUrl();
+  String _getBaseUrl() {
+    final baseUrl = ApiConfig.getBaseUrl();
     return '$baseUrl/api/categorias';
   }
 
@@ -74,7 +74,7 @@ class CategoriasService {
     String? busqueda,
   }) async {
     try {
-      final baseUrl = await _getBaseUrl();
+      final baseUrl = _getBaseUrl();
       final headers = await _getHeaders();
 
       // Construir query params
@@ -130,7 +130,7 @@ class CategoriasService {
   // Obtener una categoría por ID
   Future<ApiResponse<Categoria>> getCategoria(int id) async {
     try {
-      final baseUrl = await _getBaseUrl();
+      final baseUrl = _getBaseUrl();
       final headers = await _getHeaders();
       final response = await http.get(
         Uri.parse('$baseUrl/$id/'),
@@ -158,7 +158,7 @@ class CategoriasService {
   // Crear una nueva categoría
   Future<ApiResponse<Categoria>> createCategoria(Categoria categoria) async {
     try {
-      final baseUrl = await _getBaseUrl();
+      final baseUrl = _getBaseUrl();
       final headers = await _getHeaders();
       final response = await http.post(
         Uri.parse('$baseUrl/'),
@@ -191,7 +191,7 @@ class CategoriasService {
     Categoria categoria,
   ) async {
     try {
-      final baseUrl = await _getBaseUrl();
+      final baseUrl = _getBaseUrl();
       final headers = await _getHeaders();
       final response = await http.put(
         Uri.parse('$baseUrl/$id/'),
@@ -221,7 +221,7 @@ class CategoriasService {
   // Eliminar una categoría
   Future<ApiResponse<void>> deleteCategoria(int id) async {
     try {
-      final baseUrl = await _getBaseUrl();
+      final baseUrl = _getBaseUrl();
       final headers = await _getHeaders();
       final response = await http.delete(
         Uri.parse('$baseUrl/$id/'),
@@ -250,7 +250,7 @@ class CategoriasService {
     bool activa,
   ) async {
     try {
-      final baseUrl = await _getBaseUrl();
+      final baseUrl = _getBaseUrl();
       final headers = await _getHeaders();
       final response = await http.patch(
         Uri.parse('$baseUrl/$id/'),

@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-import 'package:shared_preferences/shared_preferences.dart';
 import 'auth_service.dart';
+import '../config/api_config.dart';
 
 // Modelos
 class Categoria {
@@ -183,9 +183,8 @@ class ProductosResponse {
 class ProductosService {
   final AuthService _authService = AuthService();
 
-  Future<String> _getBaseUrl() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getString('api_url') ?? 'http://localhost:8000';
+  String _getBaseUrl() {
+    return ApiConfig.getBaseUrl();
   }
 
   Future<Map<String, String>> _getHeaders() async {
@@ -208,7 +207,7 @@ class ProductosService {
     String? ordenamiento,
   }) async {
     try {
-      final baseUrl = await _getBaseUrl();
+      final baseUrl = _getBaseUrl();
       final headers = await _getHeaders();
 
       // Construir query parameters
@@ -245,7 +244,7 @@ class ProductosService {
   // Obtener un producto por ID
   Future<Producto> getProducto(int id) async {
     try {
-      final baseUrl = await _getBaseUrl();
+      final baseUrl = _getBaseUrl();
       final headers = await _getHeaders();
 
       final response = await http.get(
@@ -297,7 +296,7 @@ class ProductosService {
   // Obtener categorías
   Future<List<Categoria>> getCategorias() async {
     try {
-      final baseUrl = await _getBaseUrl();
+      final baseUrl = _getBaseUrl();
       final headers = await _getHeaders();
 
       final response = await http.get(

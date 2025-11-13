@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import '../../../services/productos_service.dart';
 import '../../../services/carrito_service.dart';
 import '../../../services/favoritos_service.dart';
+import '../../../services/comparacion_service.dart';
+import '../producto_comparacion_screen.dart';
 
 class ProductsTab extends StatefulWidget {
   const ProductsTab({super.key});
@@ -14,11 +16,13 @@ class _ProductsTabState extends State<ProductsTab> {
   final ProductosService _productosService = ProductosService();
   final CarritoService _carritoService = CarritoService();
   final FavoritosService _favoritosService = FavoritosService();
+  final ComparacionService _comparacionService = ComparacionService();
 
   final TextEditingController _searchController = TextEditingController();
   List<Categoria> _categorias = [];
   List<Producto> _productos = [];
   List<int> _favoritos = [];
+  List<int> _productosComparacion = [];
   bool _isLoading = true;
   bool _isLoadingMore = false;
   String? _selectedCategoryId;
@@ -32,7 +36,13 @@ class _ProductsTabState extends State<ProductsTab> {
     super.initState();
     _cargarDatos();
     _cargarFavoritos();
+    _cargarProductosComparacion();
     _scrollController.addListener(_onScroll);
+  }
+
+  Future<void> _cargarProductosComparacion() async {
+    final productos = await _comparacionService.getProductosComparacion();
+    setState(() => _productosComparacion = productos);
   }
 
   @override
@@ -149,6 +159,57 @@ class _ProductsTabState extends State<ProductsTab> {
           ),
         );
       }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+        );
+      }
+    }
+  }
+
+  Future<void> _toggleComparacion(Producto producto) async {
+    try {
+      final estaEnComparacion = _productosComparacion.contains(producto.id);
+
+      if (estaEnComparacion) {
+        await _comparacionService.eliminarProducto(producto.id);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Producto eliminado de la comparación'),
+              duration: Duration(seconds: 2),
+            ),
+          );
+        }
+      } else {
+        final puedeAgregar = await _comparacionService.puedeAgregar();
+        if (!puedeAgregar) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Máximo 3 productos para comparar'),
+                backgroundColor: Colors.orange,
+                duration: Duration(seconds: 2),
+              ),
+            );
+          }
+          return;
+        }
+
+        final agregado = await _comparacionService.agregarProducto(producto.id);
+        if (agregado && mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('${producto.nombre} agregado a comparación'),
+              backgroundColor: Colors.blue,
+              duration: const Duration(seconds: 2),
+            ),
+          );
+        }
+      }
+
+      _cargarProductosComparacion();
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -298,7 +359,8 @@ class _ProductsTabState extends State<ProductsTab> {
                           crossAxisCount: 2,
                           crossAxisSpacing: 12,
                           mainAxisSpacing: 12,
-                          childAspectRatio: 0.7,
+                          childAspectRatio:
+                              0.68, // Ajustado para evitar overflow
                         ),
                     itemCount: _productos.length + (_isLoadingMore ? 2 : 0),
                     itemBuilder: (context, index) {
@@ -320,13 +382,20 @@ class _ProductsTabState extends State<ProductsTab> {
   }
 
   Widget _buildProductCard(Producto producto) {
-    final imagenPrincipal = producto.imagenes.isNotEmpty
-        ? producto.imagenes.firstWhere(
-            (img) => img.esPrincipal,
-            orElse: () => producto.imagenes.first,
-          )
-        : null;
+    // Prioridad: imagenes con esPrincipal > primera imagen > producto.imagen
+    String? imagenUrl;
+    if (producto.imagenes.isNotEmpty) {
+      final imagenPrincipal = producto.imagenes.firstWhere(
+        (img) => img.esPrincipal,
+        orElse: () => producto.imagenes.first,
+      );
+      imagenUrl = imagenPrincipal.imagen;
+    } else if (producto.imagen != null && producto.imagen!.isNotEmpty) {
+      imagenUrl = producto.imagen;
+    }
+
     final esFavorito = _favoritos.contains(producto.id);
+    final estaEnComparacion = _productosComparacion.contains(producto.id);
 
     return Container(
       decoration: BoxDecoration(
@@ -347,6 +416,7 @@ class _ProductsTabState extends State<ProductsTab> {
           borderRadius: BorderRadius.circular(20),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
             children: [
               // Imagen del producto
               Expanded(
@@ -360,16 +430,33 @@ class _ProductsTabState extends State<ProductsTab> {
                           top: Radius.circular(20),
                         ),
                       ),
-                      child: imagenPrincipal != null
+                      child: imagenUrl != null && imagenUrl.isNotEmpty
                           ? ClipRRect(
                               borderRadius: const BorderRadius.vertical(
                                 top: Radius.circular(20),
                               ),
                               child: Image.network(
-                                imagenPrincipal.imagen,
+                                imagenUrl,
                                 width: double.infinity,
                                 height: double.infinity,
                                 fit: BoxFit.cover,
+                                loadingBuilder:
+                                    (context, child, loadingProgress) {
+                                      if (loadingProgress == null) return child;
+                                      return Center(
+                                        child: CircularProgressIndicator(
+                                          value:
+                                              loadingProgress
+                                                      .expectedTotalBytes !=
+                                                  null
+                                              ? loadingProgress
+                                                        .cumulativeBytesLoaded /
+                                                    loadingProgress
+                                                        .expectedTotalBytes!
+                                              : null,
+                                        ),
+                                      );
+                                    },
                                 errorBuilder: (context, error, stackTrace) {
                                   return const Center(
                                     child: Icon(
@@ -425,31 +512,67 @@ class _ProductsTabState extends State<ProductsTab> {
                           ),
                         ),
                       ),
-                    // Botón de favorito
+                    // Botones de acción (comparar y favorito)
                     Positioned(
                       top: 12,
                       right: 12,
-                      child: InkWell(
-                        onTap: () => _toggleFavorito(producto.id),
-                        child: Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            shape: BoxShape.circle,
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withOpacity(0.1),
-                                blurRadius: 8,
-                                offset: const Offset(0, 2),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          // Botón de comparar
+                          InkWell(
+                            onTap: () => _toggleComparacion(producto),
+                            child: Container(
+                              padding: const EdgeInsets.all(8),
+                              margin: const EdgeInsets.only(bottom: 8),
+                              decoration: BoxDecoration(
+                                color: estaEnComparacion
+                                    ? Colors.blue
+                                    : Colors.white,
+                                shape: BoxShape.circle,
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withOpacity(0.1),
+                                    blurRadius: 8,
+                                    offset: const Offset(0, 2),
+                                  ),
+                                ],
                               ),
-                            ],
+                              child: Icon(
+                                Icons.compare_arrows,
+                                size: 18,
+                                color: estaEnComparacion
+                                    ? Colors.white
+                                    : Colors.blue,
+                              ),
+                            ),
                           ),
-                          child: Icon(
-                            esFavorito ? Icons.favorite : Icons.favorite_border,
-                            size: 18,
-                            color: Colors.red,
+                          // Botón de favorito
+                          InkWell(
+                            onTap: () => _toggleFavorito(producto.id),
+                            child: Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                shape: BoxShape.circle,
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withOpacity(0.1),
+                                    blurRadius: 8,
+                                    offset: const Offset(0, 2),
+                                  ),
+                                ],
+                              ),
+                              child: Icon(
+                                esFavorito
+                                    ? Icons.favorite
+                                    : Icons.favorite_border,
+                                size: 18,
+                                color: Colors.red,
+                              ),
+                            ),
                           ),
-                        ),
+                        ],
                       ),
                     ),
                   ],
@@ -459,37 +582,46 @@ class _ProductsTabState extends State<ProductsTab> {
               Expanded(
                 flex: 2,
                 child: Padding(
-                  padding: const EdgeInsets.all(12),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 10,
+                  ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
                     children: [
-                      Text(
-                        producto.nombre,
-                        style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 14,
-                          color: Colors.black87,
+                      Flexible(
+                        child: Text(
+                          producto.nombre,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 13,
+                            color: Colors.black87,
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
                         ),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
                       ),
-                      const SizedBox(height: 6),
+                      const SizedBox(height: 4),
                       Row(
                         children: [
                           const Icon(
                             Icons.inventory_2,
-                            size: 14,
+                            size: 11,
                             color: Colors.blue,
                           ),
                           const SizedBox(width: 4),
-                          Text(
-                            'Stock: ${producto.stock}',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: producto.stock > 0
-                                  ? Colors.green.shade600
-                                  : Colors.red.shade600,
-                              fontWeight: FontWeight.w600,
+                          Flexible(
+                            child: Text(
+                              'Stock: ${producto.stock}',
+                              style: TextStyle(
+                                fontSize: 10,
+                                color: producto.stock > 0
+                                    ? Colors.green.shade600
+                                    : Colors.red.shade600,
+                                fontWeight: FontWeight.w600,
+                              ),
+                              overflow: TextOverflow.ellipsis,
                             ),
                           ),
                         ],
@@ -502,13 +634,14 @@ class _ProductsTabState extends State<ProductsTab> {
                           Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisSize: MainAxisSize.min,
                               children: [
                                 if (producto.enOferta &&
                                     producto.precioOferta != null)
                                   Text(
                                     'Bs. ${producto.precio.toStringAsFixed(2)}',
                                     style: const TextStyle(
-                                      fontSize: 10,
+                                      fontSize: 9,
                                       decoration: TextDecoration.lineThrough,
                                       color: Colors.grey,
                                     ),
@@ -517,7 +650,7 @@ class _ProductsTabState extends State<ProductsTab> {
                                   'Bs. ${(producto.precioOferta ?? producto.precio).toStringAsFixed(2)}',
                                   style: TextStyle(
                                     fontWeight: FontWeight.bold,
-                                    fontSize: 16,
+                                    fontSize: 13,
                                     color: Colors.blue.shade700,
                                   ),
                                 ),
@@ -539,7 +672,7 @@ class _ProductsTabState extends State<ProductsTab> {
                               ),
                               child: const Icon(
                                 Icons.add_shopping_cart,
-                                size: 16,
+                                size: 14,
                                 color: Colors.white,
                               ),
                             ),
@@ -558,13 +691,19 @@ class _ProductsTabState extends State<ProductsTab> {
   }
 
   void _showProductDetails(Producto producto) {
-    final imagenPrincipal = producto.imagenes.isNotEmpty
-        ? producto.imagenes.firstWhere(
-            (img) => img.esPrincipal,
-            orElse: () => producto.imagenes.first,
-          )
-        : null;
+    // Prioridad: imagenes con esPrincipal > primera imagen > producto.imagen
+    String? imagenUrl;
+    if (producto.imagenes.isNotEmpty) {
+      final imagenPrincipal = producto.imagenes.firstWhere(
+        (img) => img.esPrincipal,
+        orElse: () => producto.imagenes.first,
+      );
+      imagenUrl = imagenPrincipal.imagen;
+    } else if (producto.imagen != null && producto.imagen!.isNotEmpty) {
+      imagenUrl = producto.imagen;
+    }
     final esFavorito = _favoritos.contains(producto.id);
+    final estaEnComparacion = _productosComparacion.contains(producto.id);
 
     showModalBottomSheet(
       context: context,
@@ -602,12 +741,29 @@ class _ProductsTabState extends State<ProductsTab> {
                       color: Colors.grey.shade100,
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    child: imagenPrincipal != null
+                    child: imagenUrl != null && imagenUrl.isNotEmpty
                         ? ClipRRect(
                             borderRadius: BorderRadius.circular(12),
                             child: Image.network(
-                              imagenPrincipal.imagen,
+                              imagenUrl,
                               fit: BoxFit.contain,
+                              loadingBuilder:
+                                  (context, child, loadingProgress) {
+                                    if (loadingProgress == null) return child;
+                                    return Center(
+                                      child: CircularProgressIndicator(
+                                        value:
+                                            loadingProgress
+                                                    .expectedTotalBytes !=
+                                                null
+                                            ? loadingProgress
+                                                      .cumulativeBytesLoaded /
+                                                  loadingProgress
+                                                      .expectedTotalBytes!
+                                            : null,
+                                      ),
+                                    );
+                                  },
                               errorBuilder: (context, error, stackTrace) {
                                 return const Icon(
                                   Icons.image,
@@ -633,12 +789,31 @@ class _ProductsTabState extends State<ProductsTab> {
                         ),
                       ),
                     ),
-                    IconButton(
-                      icon: Icon(
-                        esFavorito ? Icons.favorite : Icons.favorite_border,
-                        color: Colors.red,
-                      ),
-                      onPressed: () => _toggleFavorito(producto.id),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        IconButton(
+                          icon: Icon(
+                            Icons.compare_arrows,
+                            color: estaEnComparacion
+                                ? Colors.blue
+                                : Colors.grey,
+                          ),
+                          onPressed: () {
+                            Navigator.pop(context);
+                            _toggleComparacion(producto);
+                          },
+                          tooltip: 'Comparar',
+                        ),
+                        IconButton(
+                          icon: Icon(
+                            esFavorito ? Icons.favorite : Icons.favorite_border,
+                            color: Colors.red,
+                          ),
+                          onPressed: () => _toggleFavorito(producto.id),
+                          tooltip: 'Favorito',
+                        ),
+                      ],
                     ),
                   ],
                 ),

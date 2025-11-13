@@ -3,15 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter_stripe/flutter_stripe.dart';
 import 'package:fluttertoast/fluttertoast.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'auth_service.dart';
-
-/// Configuración de Stripe
-class StripeConfig {
-  // Esta es la clave pública de Stripe (DEBE coincidir con la del backend)
-  static const String publishableKey =
-      'pk_test_51QKr0WRqGFHbYqJXNyxhvPBEj0jkqFp8aYOZaQBFhbvFh4o2BXVAf8LPQYjJH3IQzRYMKJHemMaY0JKqgJEsN4gO00H6ZDZnx9';
-}
+import '../config/stripe_config.dart';
+import '../config/api_config.dart';
 
 /// Servicio de Pagos con Stripe
 class PaymentService {
@@ -22,20 +16,22 @@ class PaymentService {
 
   PaymentService._internal();
 
-  /// Obtener la URL base del backend desde SharedPreferences
-  Future<String> _getBaseUrl() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getString('api_url') ?? 'http://localhost:8000';
+  /// Obtener la URL base del backend
+  String _getBaseUrl() {
+    return ApiConfig.getBaseUrl();
   }
 
   /// Inicializar Stripe
   Future<void> initializeStripe() async {
     try {
-      Stripe.publishableKey = StripeConfig.publishableKey;
+      // Obtener la clave desde el archivo de configuración
+      final publishableKey = StripeConfig.getPublishableKey();
+      Stripe.publishableKey = publishableKey;
       await Stripe.instance.applySettings();
       print('✅ Stripe inicializado correctamente');
     } catch (e) {
       print('❌ Error al inicializar Stripe: $e');
+      rethrow;
     }
   }
 
@@ -48,7 +44,7 @@ class PaymentService {
   ///   Map con 'client_secret', 'payment_intent_id', etc.
   Future<Map<String, dynamic>> crearPaymentIntent(int pedidoId) async {
     try {
-      final baseUrl = await _getBaseUrl();
+      final baseUrl = _getBaseUrl();
       final url = Uri.parse('$baseUrl/api/pagos/crear_payment_intent/');
 
       final token = await _authService.getToken();
@@ -72,6 +68,18 @@ class PaymentService {
         print(
           '[PAYMENT] ✅ Payment intent creado: ${data['payment_intent_id']}',
         );
+
+        // Verificar que la publishable_key del backend coincida con la configurada
+        final backendPublishableKey = data['publishable_key'];
+        if (backendPublishableKey != null &&
+            backendPublishableKey != StripeConfig.publishableKey) {
+          print(
+            '[PAYMENT] ⚠️ ADVERTENCIA: La clave pública del backend no coincide con la configurada',
+          );
+          print('[PAYMENT] Backend: $backendPublishableKey');
+          print('[PAYMENT] Mobile: ${StripeConfig.publishableKey}');
+        }
+
         return {
           'client_secret': data['client_secret'],
           'payment_intent_id': data['payment_intent_id'],
@@ -100,7 +108,7 @@ class PaymentService {
   ///   true si el pago fue confirmado exitosamente
   Future<bool> confirmarPago(String paymentIntentId) async {
     try {
-      final baseUrl = await _getBaseUrl();
+      final baseUrl = _getBaseUrl();
       final url = Uri.parse('$baseUrl/api/pagos/confirmar_pago/');
 
       final token = await _authService.getToken();
@@ -200,7 +208,7 @@ class PaymentService {
   /// Obtener historial de pagos del usuario
   Future<List<PaymentHistory>> getPaymentHistory() async {
     try {
-      final baseUrl = await _getBaseUrl();
+      final baseUrl = _getBaseUrl();
       final url = Uri.parse('$baseUrl/api/pagos/');
 
       final token = await _authService.getToken();
