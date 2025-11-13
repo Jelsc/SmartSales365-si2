@@ -51,6 +51,9 @@ urlpatterns = [
     # Analytics: dashboard inteligente con ML
     path("api/analytics/", include("analytics.urls")),
     
+    # Reportes: generación dinámica de reportes
+    path("api/reportes/", include("reportes.urls")),
+    
     path("api/bitacora/", include("bitacora.urls")),
 
     # Auth social: endpoints para login social (navegador)

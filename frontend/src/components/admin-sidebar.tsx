@@ -23,6 +23,7 @@ import {
   Package,
   ShoppingCart,
   Tag,
+  FileText,
   LayoutGrid,
 } from "lucide-react";
 
@@ -98,6 +99,12 @@ export default function Sidebar({ collapsed, setCollapsed }: SidebarProps) {
       name: "Dashboard Analytics",
       icon: BarChart3,
       route: "/admin/dashboard",
+    },
+    {
+      id: "reportes",
+      name: "Reportes Inteligentes",
+      icon: FileText,
+      route: "/admin/reportes",
     },
     {
       id: "usuarios-sistema",

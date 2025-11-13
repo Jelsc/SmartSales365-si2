@@ -17,7 +17,7 @@ User = get_user_model()
 class PedidoSeeder(BaseSeeder):
     """
     Genera pedidos de ejemplo para entrenamiento del modelo ML.
-    Crea ~150-200 pedidos distribuidos en 30 días con patrones realistas:
+    Crea ~450-600 pedidos distribuidos en 30 días con patrones realistas:
     - Más pedidos en fines de semana
     - Más pedidos en horarios pico
     - Variedad de productos y cantidades
@@ -27,7 +27,7 @@ class PedidoSeeder(BaseSeeder):
     @classmethod
     def run(cls):
         """
-        Genera pedidos de los últimos 30 días
+        Genera pedidos de los últimos 90 días
         """
         # Verificar que existan usuarios y productos
         usuarios = list(User.objects.filter(is_active=True).exclude(is_superuser=True))
@@ -46,15 +46,15 @@ class PedidoSeeder(BaseSeeder):
         
         print(f"📦 Generando pedidos con {len(usuarios)} usuarios y {len(productos)} productos...")
         
-        # Generar pedidos para los últimos 30 días
+        # Generar pedidos para los últimos 90 días
         pedidos_creados = 0
         items_creados = 0
         
         hoy = timezone.now()
         
-        for dia_offset in range(30):
-            # Fecha del pedido (de hace 30 días hasta hoy)
-            fecha_pedido = hoy - timedelta(days=(29 - dia_offset))
+        for dia_offset in range(90):
+            # Fecha del pedido (de hace 90 días hasta hoy)
+            fecha_pedido = hoy - timedelta(days=(89 - dia_offset))
             dia_semana = fecha_pedido.weekday()  # 0=Lunes, 6=Domingo
             
             # Más pedidos en fines de semana (Viernes-Domingo)

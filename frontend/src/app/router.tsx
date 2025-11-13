@@ -26,6 +26,7 @@ import MisPedidosPage from "@/pages/client/mis-pedidos/mis-pedidos.page";
 import PedidoDetallePage from "@/pages/client/mis-pedidos/pedido-detalle.page";
 import BuscarPage from "@/pages/client/buscar/buscar.page";
 import DashboardPage from "@/pages/admin/dashboard/dashboard.page";
+import ReportesPage from "@/pages/admin/reportes/reportes.page";
 
 export default function AppRouter() {
   return (
@@ -120,6 +121,14 @@ export default function AppRouter() {
           element={
             <ProtectedRoute requireAdmin={true}>
               <DashboardPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/reportes"
+          element={
+            <ProtectedRoute requireAdmin={true}>
+              <ReportesPage />
             </ProtectedRoute>
           }
         />
