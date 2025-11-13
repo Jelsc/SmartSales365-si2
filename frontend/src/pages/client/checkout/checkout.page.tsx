@@ -164,7 +164,7 @@ const CheckoutPage = () => {
                     con los detalles de tu compra.
                   </p>
                   <div className="flex gap-4">
-                    <Button onClick={() => navigate('/mis-pedidos')} className="flex-1">
+                    <Button onClick={() => navigate('/mis-pedidos')} className="flex-1 bg-blue-600 hover:bg-blue-700">
                       Ver Mis Pedidos
                     </Button>
                     <Button onClick={() => navigate('/productos')} variant="outline" className="flex-1">

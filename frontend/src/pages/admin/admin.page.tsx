@@ -18,7 +18,6 @@ import {
   ShoppingCart,
   Package,
   LayoutGrid,
-  ClipboardList,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
@@ -107,12 +106,6 @@ const sidebarModules: SidebarModule[] = [
         label: "Ventas",
         route: "/admin/ventas",
         icon: ShoppingCart,
-      },
-      {
-        id: "pedidos",
-        label: "Pedidos",
-        route: "/admin/pedidos",
-        icon: ClipboardList,
       },
     ],
   },

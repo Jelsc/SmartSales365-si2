@@ -8,6 +8,7 @@ from django.utils.decorators import method_decorator
 from django.conf import settings
 import json
 import logging
+from bitacora.utils import registrar_bitacora
 
 logger = logging.getLogger(__name__)
 
@@ -138,6 +139,14 @@ class PagoViewSet(viewsets.GenericViewSet):
         
         logger.info(f"[PAGO] ✅ Payment intent creado exitosamente - Transacción ID: {transaccion.id}")
         
+        # Registrar en bitácora
+        registrar_bitacora(
+            request=request,
+            accion='CREAR',
+            descripcion=f"Payment Intent creado para pedido {pedido.numero_pedido} - Monto: ${pedido.total}",
+            modulo='PAGOS'
+        )
+        
         return Response({
             'success': True,
             'transaccion_id': transaccion.id,
@@ -199,6 +208,14 @@ class PagoViewSet(viewsets.GenericViewSet):
                 transaccion.marcar_como_exitoso()
                 logger.info(f"[PAGO] ✅ Pago simulado exitoso para pedido {pedido_id}")
                 
+                # Registrar en bitácora
+                registrar_bitacora(
+                    request=request,
+                    accion='CONFIRMAR PAGO',
+                    descripcion=f"Pago SIMULADO confirmado - Pedido {pedido.numero_pedido} - Monto: ${transaccion.monto}",
+                    modulo='PAGOS'
+                )
+                
                 # Vaciar el carrito
                 try:
                     from carrito.models import Carrito
@@ -247,6 +264,14 @@ class PagoViewSet(viewsets.GenericViewSet):
         if resultado['status'] == 'succeeded':
             transaccion.marcar_como_exitoso()
             mensaje = 'Pago confirmado exitosamente'
+            
+            # Registrar en bitácora
+            registrar_bitacora(
+                request=request,
+                accion='CONFIRMAR PAGO',
+                descripcion=f"Pago confirmado - Pedido {transaccion.pedido.numero_pedido} - Monto: ${transaccion.monto}",
+                modulo='PAGOS'
+            )
             
             # Vaciar el carrito del usuario después de confirmar el pago exitoso
             try:

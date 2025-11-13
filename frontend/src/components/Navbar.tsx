@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import SmartSalesIcon from "./app-logo";
-import { ShoppingCart, Menu, X } from "lucide-react";
+import { ShoppingCart, Menu, X, Package } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { useCart } from "@/context/CartContext";
 import { NavUserHeader } from "./nav-user-header";
@@ -41,6 +41,12 @@ const Navbar = () => {
             <div className="flex-1 max-w-2xl">
               <SearchBar />
             </div>
+
+            {isAuthenticated && (
+              <Link to="/mis-pedidos" className="p-2 hover:bg-gray-100 rounded-lg transition-colors flex-shrink-0" title="Mis Pedidos">
+                <Package className="w-6 h-6 text-gray-700" />
+              </Link>
+            )}
 
             <Link to="/cart" className="relative p-2 hover:bg-gray-100 rounded-lg transition-colors flex-shrink-0">
               <ShoppingCart className="w-6 h-6 text-gray-700" />

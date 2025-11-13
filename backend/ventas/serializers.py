@@ -65,6 +65,8 @@ class DireccionEnvioSerializer(serializers.ModelSerializer):
 class PedidoListSerializer(serializers.ModelSerializer):
     """Serializer para listar pedidos (vista resumida)"""
     total_items = serializers.SerializerMethodField()
+    usuario_nombre = serializers.SerializerMethodField()
+    usuario_email = serializers.CharField(source='usuario.email', read_only=True)
     
     class Meta:
         model = Pedido
@@ -74,6 +76,8 @@ class PedidoListSerializer(serializers.ModelSerializer):
             'estado',
             'total',
             'total_items',
+            'usuario_nombre',
+            'usuario_email',
             'creado',
             'actualizado',
         ]
@@ -82,12 +86,21 @@ class PedidoListSerializer(serializers.ModelSerializer):
     def get_total_items(self, obj):
         """Calcular total de items en el pedido"""
         return obj.items.count()
+    
+    def get_usuario_nombre(self, obj):
+        """Obtener nombre completo del usuario"""
+        if obj.usuario:
+            nombre = obj.usuario.get_full_name()
+            return nombre if nombre else obj.usuario.username
+        return 'Cliente'
 
 
 class PedidoDetailSerializer(serializers.ModelSerializer):
     """Serializer para ver detalle completo de un pedido"""
     items = ItemPedidoSerializer(many=True, read_only=True)
     direccion_envio = DireccionEnvioSerializer(read_only=True)
+    usuario_nombre = serializers.SerializerMethodField()
+    usuario_email = serializers.CharField(source='usuario.email', read_only=True)
     
     class Meta:
         model = Pedido
@@ -95,6 +108,8 @@ class PedidoDetailSerializer(serializers.ModelSerializer):
             'id',
             'numero_pedido',
             'usuario',
+            'usuario_nombre',
+            'usuario_email',
             'estado',
             'subtotal',
             'descuento',
@@ -112,6 +127,13 @@ class PedidoDetailSerializer(serializers.ModelSerializer):
             'entregado_en',
         ]
         read_only_fields = fields
+    
+    def get_usuario_nombre(self, obj):
+        """Obtener nombre completo del usuario"""
+        if obj.usuario:
+            nombre = obj.usuario.get_full_name()
+            return nombre if nombre else obj.usuario.username
+        return 'Cliente'
 
 
 class PedidoCreateSerializer(serializers.Serializer):

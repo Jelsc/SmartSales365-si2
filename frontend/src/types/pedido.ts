@@ -47,6 +47,7 @@ export interface Pedido {
   descuento: number;
   impuestos: number;
   total: number;
+  total_items?: number;
   metodo_pago?: string;
   transaccion_id?: number;
   notas_cliente?: string;

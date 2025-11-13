@@ -4,6 +4,7 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from django_filters.rest_framework import DjangoFilterBackend
 from django.db.models import Q
+from bitacora.utils import registrar_bitacora
 from .models import Categoria, Producto, ProductoImagen, ProductoVariante
 from .serializers import (
     CategoriaSerializer,
@@ -70,13 +71,54 @@ class CategoriaViewSet(viewsets.ModelViewSet):
         """Crear categoría con logging para debugging"""
         print("📝 CREATE - Request data:", request.data)
         print("📝 CREATE - Request FILES:", request.FILES)
-        return super().create(request, *args, **kwargs)
+        response = super().create(request, *args, **kwargs)
+        
+        # Registrar en bitácora
+        if response.status_code == status.HTTP_201_CREATED:
+            registrar_bitacora(
+                request=request,
+                accion='CREAR',
+                descripcion=f"Categoría creada: {response.data.get('nombre')}",
+                modulo='CATEGORIAS'
+            )
+        
+        return response
     
     def update(self, request, *args, **kwargs):
         """Actualizar categoría con logging para debugging"""
         print("📝 UPDATE - Request data:", request.data)
         print("📝 UPDATE - Request FILES:", request.FILES)
-        return super().update(request, *args, **kwargs)
+        response = super().update(request, *args, **kwargs)
+        
+        # Registrar en bitácora
+        if response.status_code == status.HTTP_200_OK:
+            registrar_bitacora(
+                request=request,
+                accion='ACTUALIZAR',
+                descripcion=f"Categoría actualizada: {response.data.get('nombre')}",
+                modulo='CATEGORIAS'
+            )
+        
+        return response
+    
+    def destroy(self, request, *args, **kwargs):
+        """Eliminar categoría y registrar en bitácora"""
+        instance = self.get_object()
+        categoria_nombre = instance.nombre
+        categoria_id = instance.id
+        
+        response = super().destroy(request, *args, **kwargs)
+        
+        # Registrar en bitácora
+        if response.status_code == status.HTTP_204_NO_CONTENT:
+            registrar_bitacora(
+                request=request,
+                accion='ELIMINAR',
+                descripcion=f"Categoría eliminada: {categoria_nombre}",
+                modulo='CATEGORIAS'
+            )
+        
+        return response
     
     @action(detail=True, methods=['get'])
     def productos(self, request, pk=None):
@@ -175,6 +217,56 @@ class ProductoViewSet(viewsets.ModelViewSet):
         instance.save(update_fields=['vistas'])
         serializer = self.get_serializer(instance)
         return Response(serializer.data)
+    
+    def create(self, request, *args, **kwargs):
+        """Crear producto y registrar en bitácora"""
+        response = super().create(request, *args, **kwargs)
+        
+        # Registrar en bitácora
+        if response.status_code == status.HTTP_201_CREATED:
+            registrar_bitacora(
+                request=request,
+                accion='CREAR',
+                descripcion=f"Producto creado: {response.data.get('nombre')} - SKU: {response.data.get('sku')}",
+                modulo='PRODUCTOS'
+            )
+        
+        return response
+    
+    def update(self, request, *args, **kwargs):
+        """Actualizar producto y registrar en bitácora"""
+        response = super().update(request, *args, **kwargs)
+        
+        # Registrar en bitácora
+        if response.status_code == status.HTTP_200_OK:
+            registrar_bitacora(
+                request=request,
+                accion='ACTUALIZAR',
+                descripcion=f"Producto actualizado: {response.data.get('nombre')} - SKU: {response.data.get('sku')}",
+                modulo='PRODUCTOS'
+            )
+        
+        return response
+    
+    def destroy(self, request, *args, **kwargs):
+        """Eliminar producto y registrar en bitácora"""
+        instance = self.get_object()
+        producto_nombre = instance.nombre
+        producto_sku = instance.sku
+        producto_id = instance.id
+        
+        response = super().destroy(request, *args, **kwargs)
+        
+        # Registrar en bitácora
+        if response.status_code == status.HTTP_204_NO_CONTENT:
+            registrar_bitacora(
+                request=request,
+                accion='ELIMINAR',
+                descripcion=f"Producto eliminado: {producto_nombre} - SKU: {producto_sku}",
+                modulo='PRODUCTOS'
+            )
+        
+        return response
     
     @action(detail=False, methods=['get'])
     def destacados(self, request):
