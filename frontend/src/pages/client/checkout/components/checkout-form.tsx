@@ -29,11 +29,21 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({
   const [clientSecret, setClientSecret] = useState<string>('');
   const [pedidoId, setPedidoId] = useState<number | null>(null);
   const isInitializedRef = useRef(false);
+  const initializationKey = useRef(`payment-init-${Date.now()}`);
 
   useEffect(() => {
-    // Evitar ejecución duplicada en desarrollo (React.StrictMode)
-    if (isInitializedRef.current) return;
+    // Evitar ejecución duplicada usando ref Y sessionStorage
+    const sessionKey = initializationKey.current;
+    
+    if (isInitializedRef.current || sessionStorage.getItem(sessionKey)) {
+      console.log('[CHECKOUT] Inicialización ya ejecutada, saltando...');
+      return;
+    }
+    
     isInitializedRef.current = true;
+    sessionStorage.setItem(sessionKey, 'true');
+    
+    console.log('[CHECKOUT] Iniciando proceso de pago...');
     
     // 1. Primero crear el pedido pendiente
     // 2. Luego crear el payment intent para ese pedido
@@ -41,6 +51,7 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({
       try {
         setLoading(true);
         
+        console.log('[CHECKOUT] 1. Creando pedido...');
         // Crear pedido en estado PENDIENTE
         const pedidoResponse = await apiRequest<{ id: number }>(
           '/api/ventas/pedidos/',
@@ -63,8 +74,10 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({
         );
 
         const nuevoPedidoId = pedidoResponse.data!.id;
+        console.log('[CHECKOUT] ✅ Pedido creado:', nuevoPedidoId);
         setPedidoId(nuevoPedidoId);
 
+        console.log('[CHECKOUT] 2. Creando payment intent...');
         // Crear payment intent para el pedido
         const paymentResponse = await apiRequest<{ client_secret: string }>(
           '/api/pagos/crear_payment_intent/',
@@ -76,31 +89,48 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({
           }
         );
 
+        console.log('[CHECKOUT] ✅ Payment intent creado exitosamente');
         setClientSecret(paymentResponse.data!.client_secret);
       } catch (err: any) {
-        console.error('Error detallado al inicializar pago:', err);
+        console.error('[CHECKOUT] ❌ Error al inicializar pago:', err);
+        console.error('[CHECKOUT] Error response:', err.response?.data);
         const errorMessage = err.response?.data?.error 
           || err.response?.data?.pedido_id?.[0]
           || err.message 
           || 'Error al inicializar el pago';
         setError(errorMessage);
+        
+        // Limpiar sessionStorage si hay error para permitir reintentar
+        sessionStorage.removeItem(sessionKey);
       } finally {
         setLoading(false);
       }
     };
 
     initializePayment();
+    
+    // Cleanup function
+    return () => {
+      // NO limpiar sessionStorage en cleanup para evitar doble ejecución
+      console.log('[CHECKOUT] Componente desmontándose...');
+    };
   }, [shippingData]); // Eliminado isInitialized de las dependencias
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    console.log('[CHECKOUT] Iniciando proceso de pago con tarjeta...');
+
     if (!stripe || !elements || !clientSecret) {
+      console.error('[CHECKOUT] Faltan elementos necesarios:', { stripe: !!stripe, elements: !!elements, clientSecret: !!clientSecret });
+      setError('Error: No se ha inicializado el sistema de pagos correctamente');
       return;
     }
 
     const cardElement = elements.getElement(CardElement);
     if (!cardElement) {
+      console.error('[CHECKOUT] No se encontró CardElement');
+      setError('Error: No se encontró el formulario de tarjeta');
       return;
     }
 
@@ -108,6 +138,7 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({
     setError('');
 
     try {
+      console.log('[CHECKOUT] Confirmando pago con Stripe...');
       // Confirmar el pago con Stripe
       const { error: stripeError, paymentIntent } = await stripe.confirmCardPayment(
         clientSecret,
@@ -130,26 +161,38 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({
       );
 
       if (stripeError) {
+        console.error('[CHECKOUT] Error de Stripe:', stripeError);
         setError(stripeError.message || 'Error al procesar el pago');
         setLoading(false);
         return;
       }
 
+      console.log('[CHECKOUT] Respuesta de Stripe:', paymentIntent?.status);
+
       if (paymentIntent.status === 'succeeded') {
+        console.log('[CHECKOUT] Pago exitoso, confirmando en backend...');
         // Confirmar el pago en el backend
-        await apiRequest('/api/pagos/confirmar_pago/', {
+        const response = await apiRequest('/api/pagos/confirmar_pago/', {
           method: 'POST',
           body: JSON.stringify({
             payment_intent_id: paymentIntent.id,
           }),
         });
 
+        console.log('[CHECKOUT] ✅ Pago confirmado en backend:', response);
+
         // Refrescar el carrito (quedará vacío después de confirmar el pago)
+        console.log('[CHECKOUT] Refrescando carrito...');
         await refrescarCarrito();
         
+        console.log('[CHECKOUT] ✅ Llamando a onSuccess()...');
         onSuccess();
+      } else {
+        console.warn('[CHECKOUT] Estado del pago no es "succeeded":', paymentIntent.status);
+        setError('El pago no se completó correctamente');
       }
     } catch (err: any) {
+      console.error('[CHECKOUT] ❌ Error en handleSubmit:', err);
       setError(err.message || 'Error al procesar el pedido');
     } finally {
       setLoading(false);
@@ -216,6 +259,8 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({
                 <AlertDescription>{error}</AlertDescription>
               </Alert>
             )}
+
+
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-3">

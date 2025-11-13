@@ -79,6 +79,10 @@ class ConfirmarPagoSerializer(serializers.Serializer):
     
     def validate_payment_intent_id(self, value):
         """Validar que el payment intent existe"""
+        # Permitir IDs simulados en desarrollo
+        if value and value.startswith('simulated_'):
+            return value
+        # Validar IDs reales de Stripe
         if not value or not value.startswith('pi_'):
             raise serializers.ValidationError('Payment Intent ID inválido')
         return value

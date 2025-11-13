@@ -8,12 +8,16 @@ from carrito.models import Carrito
 
 class ItemPedidoSerializer(serializers.ModelSerializer):
     """Serializer para los items de un pedido"""
+    producto_nombre = serializers.CharField(source='nombre_producto', read_only=True)
+    producto_imagen = serializers.SerializerMethodField()
     
     class Meta:
         model = ItemPedido
         fields = [
             'id',
             'producto',
+            'producto_nombre',
+            'producto_imagen',
             'nombre_producto',
             'sku',
             'precio_unitario',
@@ -28,6 +32,15 @@ class ItemPedidoSerializer(serializers.ModelSerializer):
             'precio_unitario',
             'subtotal',
         ]
+    
+    def get_producto_imagen(self, obj):
+        """Obtener la URL de la imagen del producto"""
+        if obj.producto and obj.producto.imagen:
+            request = self.context.get('request')
+            if request:
+                return request.build_absolute_uri(obj.producto.imagen.url)
+            return obj.producto.imagen.url
+        return None
 
 
 class DireccionEnvioSerializer(serializers.ModelSerializer):
@@ -74,7 +87,7 @@ class PedidoListSerializer(serializers.ModelSerializer):
 class PedidoDetailSerializer(serializers.ModelSerializer):
     """Serializer para ver detalle completo de un pedido"""
     items = ItemPedidoSerializer(many=True, read_only=True)
-    direccion = DireccionEnvioSerializer(read_only=True)
+    direccion_envio = DireccionEnvioSerializer(read_only=True)
     
     class Meta:
         model = Pedido
@@ -91,7 +104,7 @@ class PedidoDetailSerializer(serializers.ModelSerializer):
             'notas_cliente',
             'notas_internas',
             'items',
-            'direccion',
+            'direccion_envio',
             'creado',
             'actualizado',
             'pagado_en',
@@ -181,6 +194,19 @@ class PedidoCreateSerializer(serializers.Serializer):
         # para evitar perder items si el pago falla
         
         return pedido
+    
+    def to_representation(self, instance):
+        """
+        Customizar la respuesta para incluir información del pedido creado
+        """
+        return {
+            'id': instance.id,
+            'numero_pedido': instance.numero_pedido,
+            'estado': instance.estado,
+            'total': str(instance.total),
+            'subtotal': str(instance.subtotal),
+            'items_count': instance.items.count(),
+        }
 
 
 class ActualizarEstadoPedidoSerializer(serializers.Serializer):

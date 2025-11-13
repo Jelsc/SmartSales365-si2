@@ -8,7 +8,7 @@ import { UserInfo } from "@/components/user-info";
 import { useMobileNavigation } from "@/hooks/use-mobile-navigation";
 import { type User } from "@/services/authService";
 import { Link, useNavigate } from "react-router-dom";
-import { LogOut, Settings } from "lucide-react";
+import { LogOut, Settings, Package } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 
 interface UserMenuContentProps {
@@ -55,6 +55,12 @@ export function UserMenuContent({ user }: UserMenuContentProps) {
       </DropdownMenuLabel>
       <DropdownMenuSeparator />
       <DropdownMenuGroup>
+        <DropdownMenuItem asChild>
+          <Link className="block w-full" to="/mis-pedidos" onClick={cleanup}>
+            <Package className="mr-2" />
+            Mis Pedidos
+          </Link>
+        </DropdownMenuItem>
         <DropdownMenuItem asChild>
           <Link className="block w-full" to="/profile/edit" onClick={cleanup}>
             <Settings className="mr-2" />

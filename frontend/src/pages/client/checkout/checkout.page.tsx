@@ -40,8 +40,12 @@ const CheckoutPage = () => {
   };
 
   const handlePaymentSuccess = () => {
+    console.log('[CHECKOUT PAGE] ✅ Pago exitoso, cambiando a confirmación');
     setCurrentStep('confirmation');
   };
+
+  // Si estamos en confirmación, no validar el carrito vacío
+  const isConfirmationStep = currentStep === 'confirmation';
 
   if (loading && !carrito) {
     return (
@@ -51,7 +55,8 @@ const CheckoutPage = () => {
     );
   }
 
-  if (!carrito || carrito.items.length === 0) {
+  // Solo mostrar "carrito vacío" si NO estamos en confirmación
+  if (!isConfirmationStep && (!carrito || carrito.items.length === 0)) {
     return (
       <div className="max-w-7xl mx-auto px-4 py-12">
         <div className="text-center py-16">
@@ -128,9 +133,9 @@ const CheckoutPage = () => {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className={`grid grid-cols-1 ${!isConfirmationStep ? 'lg:grid-cols-3' : 'lg:grid-cols-1'} gap-8`}>
           {/* Formulario de checkout */}
-          <div className="lg:col-span-2">
+          <div className={!isConfirmationStep ? 'lg:col-span-2' : ''}>
             {currentStep === 'shipping' && (
               <ShippingForm onSubmit={handleShippingSubmit} />
             )}
@@ -171,10 +176,12 @@ const CheckoutPage = () => {
             )}
           </div>
 
-          {/* Resumen del pedido */}
-          <div className="lg:col-span-1">
-            <OrderSummary carrito={carrito} />
-          </div>
+          {/* Resumen del pedido - Solo mostrar si no estamos en confirmación */}
+          {!isConfirmationStep && carrito && (
+            <div className="lg:col-span-1">
+              <OrderSummary carrito={carrito} />
+            </div>
+          )}
         </div>
       </div>
     </>
