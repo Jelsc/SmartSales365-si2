@@ -87,6 +87,24 @@ services:
       - "1025:1025" # Puerto SMTP para que Django envíe correos
       - "8025:8025" # Interfaz web para ver los correos
 
+  nginx:
+    image: nginx:alpine
+    container_name: inventario_nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      # Para producción en la nube (con certificados de Let's Encrypt)
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - /etc/letsencrypt:/etc/letsencrypt:ro
+      # Para desarrollo local (descomentar las siguientes líneas y comentar las de arriba)
+      # - ./nginx-local.conf:/etc/nginx/conf.d/default.conf:ro
+      # - ./ssl:/etc/nginx/ssl:ro
+    depends_on:
+      - frontend
+      - backend
+    restart: unless-stopped
+
 volumes:
   pgdata:
   redis_data:

@@ -81,3 +81,11 @@ temp/
 *.swo
 *~
 
+# === Certificados SSL ===
+ssl/
+*.key
+*.crt
+*.pem
+
+# === Firebase ===
+backend/firebase-credentials.json
