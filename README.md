@@ -32,7 +32,8 @@ SmartSales365-si2/
 - Git
 - (Opcional) Node 18+ si vas a tocar el frontend sin Docker
 - (Opcional) Python 3.11+ si vas a correr backend sin Docker
-- flutter
+- **Flutter** - Si no lo tienes instalado, consulta [INSTALAR_FLUTTER_WINDOWS.md](./INSTALAR_FLUTTER_WINDOWS.md)
+- **Android SDK** - Para compilar APK, consulta [INSTALAR_ANDROID_SDK.md](./INSTALAR_ANDROID_SDK.md)
 
 ### 1) Clonar y configurar variables
 

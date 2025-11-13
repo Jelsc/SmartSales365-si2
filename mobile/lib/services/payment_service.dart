@@ -28,8 +28,8 @@ class PaymentService {
   Future<void> initializeStripe() async {
     try {
       // Intentar obtener la clave local, pero no fallar si no está configurada
-      if (StripeConfig.hasAnyKey()) {
-        final publishableKey = StripeConfig.getPublishableKey();
+      final publishableKey = StripeConfig.getPublishableKey();
+      if (publishableKey.isNotEmpty) {
         Stripe.publishableKey = publishableKey;
         await Stripe.instance.applySettings();
         print('✅ Stripe inicializado correctamente con clave local');

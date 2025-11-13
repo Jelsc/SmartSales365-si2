@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../services/auth_service.dart';
+import '../../services/notification_service.dart';
 import '../../navigation/app_router.dart';
 import '../../config/api_config.dart';
 import '../../config/api_url.dart';
@@ -66,6 +67,21 @@ class _LoginScreenState extends State<LoginScreen> {
         }
 
         _authService.showSuccessToast(message);
+
+        // Mostrar notificación local de bienvenida
+        try {
+          final notificationService = NotificationService();
+          await notificationService.showLocalNotification(
+            title: '¡Bienvenido! 👋',
+            body: message,
+            data: {
+              'tipo': 'login_exitoso',
+              'usuario': loginResponse.user.firstName,
+            },
+          );
+        } catch (e) {
+          print('⚠️ Error mostrando notificación: $e');
+        }
 
         if (mounted) {
           // Redirigir según el tipo de usuario
