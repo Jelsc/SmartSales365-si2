@@ -7,6 +7,9 @@ from django.views.decorators.csrf import csrf_exempt
 from django.utils.decorators import method_decorator
 from django.conf import settings
 import json
+import logging
+
+logger = logging.getLogger(__name__)
 
 from .models import MetodoPago, TransaccionPago
 from .serializers import (
@@ -47,17 +50,35 @@ class PagoViewSet(viewsets.GenericViewSet):
             "pedido_id": 1
         }
         """
+        logger.info(f"[PAGO] Solicitud crear_payment_intent de usuario: {request.user.username}")
+        logger.info(f"[PAGO] Request data: {request.data}")
+        
         serializer = CrearPaymentIntentSerializer(
             data=request.data,
             context={'request': request}
         )
-        serializer.is_valid(raise_exception=True)
+        
+        if not serializer.is_valid():
+            logger.error(f"[PAGO] Validación fallida: {serializer.errors}")
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
         
         pedido_id = serializer.validated_data['pedido_id']
-        pedido = get_object_or_404(Pedido, id=pedido_id)
+        logger.info(f"[PAGO] Buscando pedido ID: {pedido_id}")
+        
+        try:
+            pedido = Pedido.objects.get(id=pedido_id)
+        except Pedido.DoesNotExist:
+            logger.error(f"[PAGO] Pedido {pedido_id} no encontrado")
+            return Response(
+                {'error': 'Pedido no encontrado'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        logger.info(f"[PAGO] Pedido encontrado: {pedido.numero_pedido}, usuario: {pedido.usuario.username}, estado: {pedido.estado}")
         
         # Validar que el pedido pertenezca al usuario autenticado
         if pedido.usuario != request.user:
+            logger.error(f"[PAGO] Usuario {request.user.username} no es dueño del pedido {pedido_id}")
             return Response(
                 {'error': 'No tienes permiso para acceder a este pedido'},
                 status=status.HTTP_403_FORBIDDEN
@@ -65,19 +86,24 @@ class PagoViewSet(viewsets.GenericViewSet):
         
         # Validar que el pedido esté en estado PENDIENTE
         if pedido.estado != 'PENDIENTE':
+            logger.error(f"[PAGO] Pedido {pedido_id} no está PENDIENTE (estado: {pedido.estado})")
             return Response(
                 {'error': f'El pedido no está en estado PENDIENTE (estado actual: {pedido.estado})'},
                 status=status.HTTP_400_BAD_REQUEST
             )
         
         # Validar que el pedido tenga items
-        if pedido.items.count() == 0:
+        items_count = pedido.items.count()
+        logger.info(f"[PAGO] Pedido tiene {items_count} items")
+        if items_count == 0:
+            logger.error(f"[PAGO] Pedido {pedido_id} no tiene items")
             return Response(
                 {'error': 'El pedido no tiene items'},
                 status=status.HTTP_400_BAD_REQUEST
             )
         
         # Obtener o crear método de pago Stripe
+        logger.info(f"[PAGO] Obteniendo/creando método de pago Stripe")
         metodo_pago, _ = MetodoPago.objects.get_or_create(
             tipo='STRIPE',
             defaults={
@@ -87,15 +113,19 @@ class PagoViewSet(viewsets.GenericViewSet):
         )
         
         # Crear Payment Intent en Stripe
+        logger.info(f"[PAGO] Llamando a StripeService.crear_payment_intent para pedido {pedido_id}")
         resultado = StripeService.crear_payment_intent(pedido)
+        logger.info(f"[PAGO] Resultado de Stripe: {resultado.get('success')}")
         
         if not resultado.get('success'):
+            logger.error(f"[PAGO] Error de Stripe: {resultado.get('error')}")
             return Response(
                 {'error': resultado.get('error', 'Error al crear el pago')},
                 status=status.HTTP_400_BAD_REQUEST
             )
         
         # Crear registro de transacción
+        logger.info(f"[PAGO] Creando TransaccionPago para pedido {pedido_id}")
         transaccion = TransaccionPago.objects.create(
             pedido=pedido,
             metodo_pago=metodo_pago,
@@ -105,6 +135,8 @@ class PagoViewSet(viewsets.GenericViewSet):
             estado='PROCESANDO',
             metadata=resultado
         )
+        
+        logger.info(f"[PAGO] ✅ Payment intent creado exitosamente - Transacción ID: {transaccion.id}")
         
         return Response({
             'success': True,
@@ -132,6 +164,64 @@ class PagoViewSet(viewsets.GenericViewSet):
         serializer.is_valid(raise_exception=True)
         
         payment_intent_id = serializer.validated_data['payment_intent_id']
+        
+        logger.info(f"[PAGO] Confirmando pago - Payment Intent: {payment_intent_id}")
+        
+        # MODO DESARROLLO: Permitir simulación de pago
+        is_simulated = payment_intent_id.startswith('simulated_')
+        
+        if is_simulated:
+            logger.warning(f"[PAGO] ⚠️ Pago SIMULADO detectado: {payment_intent_id}")
+            # Extraer el pedido_id del payment_intent_id simulado
+            try:
+                pedido_id = int(payment_intent_id.replace('simulated_', ''))
+                pedido = Pedido.objects.get(id=pedido_id)
+                
+                # Buscar o crear transacción para este pedido
+                transaccion = TransaccionPago.objects.filter(pedido=pedido).first()
+                
+                if not transaccion:
+                    # Crear transacción simulada
+                    metodo_pago, _ = MetodoPago.objects.get_or_create(
+                        tipo='STRIPE',
+                        defaults={'nombre': 'Tarjeta de Crédito/Débito', 'activo': True}
+                    )
+                    transaccion = TransaccionPago.objects.create(
+                        pedido=pedido,
+                        metodo_pago=metodo_pago,
+                        monto=pedido.total,
+                        moneda='USD',
+                        id_externo=payment_intent_id,
+                        estado='PROCESANDO',
+                    )
+                
+                # Marcar como exitoso (simulado)
+                transaccion.marcar_como_exitoso()
+                logger.info(f"[PAGO] ✅ Pago simulado exitoso para pedido {pedido_id}")
+                
+                # Vaciar el carrito
+                try:
+                    from carrito.models import Carrito
+                    carrito = Carrito.objects.get(usuario=request.user)
+                    carrito.limpiar()
+                    logger.info(f"[PAGO] Carrito vaciado para usuario {request.user.username}")
+                except Carrito.DoesNotExist:
+                    pass
+                
+                transaccion_serializer = TransaccionPagoSerializer(transaccion)
+                
+                return Response({
+                    'success': True,
+                    'message': '🧪 Pago SIMULADO confirmado exitosamente (modo desarrollo)',
+                    'status': 'succeeded',
+                    'transaccion': transaccion_serializer.data,
+                })
+            except Exception as e:
+                logger.error(f"[PAGO] Error en pago simulado: {str(e)}")
+                return Response(
+                    {'error': f'Error en pago simulado: {str(e)}'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
         
         # Buscar la transacción
         try:

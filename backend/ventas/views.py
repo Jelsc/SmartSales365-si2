@@ -49,10 +49,10 @@ class PedidoViewSet(viewsets.GenericViewSet):
         user = self.request.user
         if user.is_staff:
             # Admin puede ver todos los pedidos
-            return Pedido.objects.all().select_related('usuario').prefetch_related('items', 'direccion')
+            return Pedido.objects.all().select_related('usuario').prefetch_related('items', 'direccion_envio')
         else:
             # Usuarios normales solo ven sus pedidos
-            return Pedido.objects.filter(usuario=user).select_related('usuario').prefetch_related('items', 'direccion')
+            return Pedido.objects.filter(usuario=user).select_related('usuario').prefetch_related('items', 'direccion_envio')
     
     def list(self, request):
         """
@@ -112,7 +112,7 @@ class PedidoViewSet(viewsets.GenericViewSet):
         Obtener el detalle completo de un pedido
         """
         pedido = get_object_or_404(self.get_queryset(), pk=pk)
-        serializer = PedidoDetailSerializer(pedido)
+        serializer = PedidoDetailSerializer(pedido, context={'request': request})
         return Response(serializer.data)
     
     def create(self, request):
@@ -140,13 +140,9 @@ class PedidoViewSet(viewsets.GenericViewSet):
         serializer.is_valid(raise_exception=True)
         pedido = serializer.save()
         
-        # Retornar el pedido creado con todos los detalles
-        detalle_serializer = PedidoDetailSerializer(pedido)
+        # Retornar los datos del serializer directamente (incluye to_representation)
         return Response(
-            {
-                'message': 'Pedido creado exitosamente',
-                'pedido': detalle_serializer.data
-            },
+            serializer.data,
             status=status.HTTP_201_CREATED
         )
     

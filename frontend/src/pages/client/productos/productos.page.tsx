@@ -93,8 +93,7 @@ const ProductosPage: React.FC = () => {
 
   const handleAddToCart = async (producto: Producto) => {
     await agregarProducto(producto.id, 1);
-    toast.success(`${producto.nombre} agregado al carrito`);
-    // El toast ya se muestra en el CartContext
+    toast.success(`Añadido "${producto.nombre}" al carrito`);
   };
 
   const handlePageChange = (newPage: number) => {

@@ -66,7 +66,10 @@ const PedidoDetallePage = () => {
     });
   };
 
-  const formatPrice = (price: number) => `Bs. ${price.toFixed(2)}`;
+  const formatPrice = (price: number | string) => {
+    const numPrice = typeof price === 'string' ? parseFloat(price) : price;
+    return `Bs. ${numPrice.toFixed(2)}`;
+  };
 
   const getImageUrl = (imagePath?: string) => {
     if (!imagePath) return '/placeholder-product.png';
