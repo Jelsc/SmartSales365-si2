@@ -10,12 +10,12 @@ class StripeConfig {
   // Clave pública de Stripe (publishable key)
   // Esta clave puede ser expuesta en el cliente
   // Formato: pk_test_... o pk_live_...
-  static const String publishableKey = 'TU_PUBLISHABLE_KEY_AQUI';
+  static const String publishableKey = '';
 
   // Validar que la clave esté configurada
   static bool get isConfigured {
     return publishableKey.isNotEmpty &&
-        publishableKey != 'TU_PUBLISHABLE_KEY_AQUI' &&
+        publishableKey != 'xd' &&
         (publishableKey.startsWith('pk_test_') ||
             publishableKey.startsWith('pk_live_'));
   }
@@ -23,9 +23,7 @@ class StripeConfig {
   // Obtener la clave con validación
   static String getPublishableKey() {
     if (!isConfigured) {
-      throw Exception(
-        'Stripe no está configurado. Por favor configura tu publishable key en lib/config/stripe_config.dart',
-      );
+      throw Exception('xd');
     }
     return publishableKey;
   }

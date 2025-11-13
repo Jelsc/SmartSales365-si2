@@ -12,12 +12,12 @@ class StripeConfig {
   // Formato: pk_test_... o pk_live_...
   // IMPORTANTE: Esta clave DEBE coincidir con STRIPE_PUBLIC_KEY del backend (.env)
   // Obtén la clave del backend: backend/.env -> STRIPE_PUBLIC_KEY
-  static const String publishableKey = 'stripe aqui';
+  static const String publishableKey = 'xd';
 
   // Validar que la clave esté configurada
   static bool get isConfigured {
     return publishableKey.isNotEmpty &&
-        publishableKey != 'TU_PUBLISHABLE_KEY_AQUI' &&
+        publishableKey != 'xd' &&
         (publishableKey.startsWith('pk_test_') ||
             publishableKey.startsWith('pk_live_'));
   }

@@ -20,6 +20,40 @@ class _AdminDrawerState extends State<AdminDrawer> {
   void initState() {
     super.initState();
     _loadUserData();
+    _autoExpandActiveModules();
+  }
+
+  void _autoExpandActiveModules() {
+    // Auto-expandir módulos que tienen submódulos activos
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+
+      // Usuarios y Seguridad
+      if (_isRouteActive('/admin/permisos') ||
+          _isRouteActive('/admin/roles') ||
+          _isRouteActive('/admin/usuarios')) {
+        if (!_isExpanded('usuarios-sistema')) {
+          _toggleExpanded('usuarios-sistema');
+        }
+      }
+
+      // Administración Interna
+      if (_isRouteActive('/admin/personal') ||
+          _isRouteActive('/admin/conductores')) {
+        if (!_isExpanded('administracion-interna')) {
+          _toggleExpanded('administracion-interna');
+        }
+      }
+
+      // E-Commerce
+      if (_isRouteActive('/admin/productos') ||
+          _isRouteActive('/admin/categorias') ||
+          _isRouteActive('/admin/ventas')) {
+        if (!_isExpanded('e-commerce')) {
+          _toggleExpanded('e-commerce');
+        }
+      }
+    });
   }
 
   Future<void> _loadUserData() async {
@@ -76,7 +110,9 @@ class _AdminDrawerState extends State<AdminDrawer> {
   bool _isExpanded(String moduleId) => _expandedModules.contains(moduleId);
 
   bool _isRouteActive(String route) {
-    return widget.currentRoute == route;
+    // Verificar si la ruta actual coincide exactamente o comienza con la ruta
+    return widget.currentRoute == route ||
+        widget.currentRoute.startsWith(route);
   }
 
   @override
@@ -177,11 +213,25 @@ class _AdminDrawerState extends State<AdminDrawer> {
 
                 const Divider(height: 1),
 
+                // Dashboard Analytics
+                _buildMenuItem(
+                  icon: Icons.bar_chart,
+                  title: 'Dashboard Analytics',
+                  route: '/admin/dashboard',
+                ),
+
+                const Divider(height: 1),
+
                 // Usuarios y Seguridad
                 _buildExpandableModule(
                   moduleId: 'usuarios-sistema',
                   icon: Icons.shield_outlined,
                   title: 'Usuarios y Seguridad',
+                  submoduleRoutes: [
+                    '/admin/permisos',
+                    '/admin/roles',
+                    '/admin/usuarios',
+                  ],
                   children: [
                     _buildSubMenuItem(
                       icon: Icons.check_circle_outline,
@@ -208,6 +258,7 @@ class _AdminDrawerState extends State<AdminDrawer> {
                   moduleId: 'administracion-interna',
                   icon: Icons.business_center,
                   title: 'Administración Interna',
+                  submoduleRoutes: ['/admin/personal', '/admin/conductores'],
                   children: [
                     _buildSubMenuItem(
                       icon: Icons.badge,
@@ -229,6 +280,11 @@ class _AdminDrawerState extends State<AdminDrawer> {
                   moduleId: 'e-commerce',
                   icon: Icons.shopping_cart,
                   title: 'E-Commerce',
+                  submoduleRoutes: [
+                    '/admin/productos',
+                    '/admin/categorias',
+                    '/admin/ventas',
+                  ],
                   children: [
                     _buildSubMenuItem(
                       icon: Icons.inventory,
@@ -244,11 +300,6 @@ class _AdminDrawerState extends State<AdminDrawer> {
                       icon: Icons.point_of_sale,
                       title: 'Ventas',
                       route: '/admin/ventas',
-                    ),
-                    _buildSubMenuItem(
-                      icon: Icons.shopping_bag,
-                      title: 'Pedidos',
-                      route: '/admin/pedidos',
                     ),
                   ],
                 ),
@@ -266,7 +317,7 @@ class _AdminDrawerState extends State<AdminDrawer> {
 
                 // Bitácora
                 _buildMenuItem(
-                  icon: Icons.history,
+                  icon: Icons.book_outlined,
                   title: 'Bitácora',
                   route: '/admin/bitacora',
                 ),
@@ -330,26 +381,45 @@ class _AdminDrawerState extends State<AdminDrawer> {
     required IconData icon,
     required String title,
     required List<Widget> children,
+    List<String>? submoduleRoutes,
   }) {
     final isExpanded = _isExpanded(moduleId);
+    // Verificar si algún submódulo está activo
+    final hasActiveSubmodule =
+        submoduleRoutes != null &&
+        submoduleRoutes.any((route) => _isRouteActive(route));
 
     return Column(
       children: [
         Container(
           margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-          decoration: BoxDecoration(borderRadius: BorderRadius.circular(8)),
+          decoration: BoxDecoration(
+            color: hasActiveSubmodule ? Colors.blue.shade100 : null,
+            borderRadius: BorderRadius.circular(8),
+          ),
           child: ListTile(
-            leading: Icon(icon, color: Colors.grey.shade700),
+            leading: Icon(
+              icon,
+              color: hasActiveSubmodule
+                  ? Colors.blue.shade700
+                  : Colors.grey.shade700,
+            ),
             title: Text(
               title,
               style: TextStyle(
-                color: Colors.grey.shade800,
-                fontWeight: FontWeight.w500,
+                color: hasActiveSubmodule
+                    ? Colors.blue.shade700
+                    : Colors.grey.shade800,
+                fontWeight: hasActiveSubmodule
+                    ? FontWeight.bold
+                    : FontWeight.w500,
               ),
             ),
             trailing: Icon(
               isExpanded ? Icons.expand_less : Icons.expand_more,
-              color: Colors.grey.shade700,
+              color: hasActiveSubmodule
+                  ? Colors.blue.shade700
+                  : Colors.grey.shade700,
             ),
             onTap: () => _toggleExpanded(moduleId),
           ),

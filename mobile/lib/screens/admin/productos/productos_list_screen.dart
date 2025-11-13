@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../services/producto_admin_service.dart';
 import 'producto_form_screen.dart';
+import '../admin_drawer.dart';
 
 class ProductosListScreen extends StatefulWidget {
   const ProductosListScreen({super.key});
@@ -208,6 +209,7 @@ class _ProductosListScreenState extends State<ProductosListScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      drawer: const AdminDrawer(currentRoute: '/admin/productos'),
       appBar: AppBar(
         title: const Text('Productos'),
         backgroundColor: Colors.deepPurple,

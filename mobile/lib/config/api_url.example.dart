@@ -17,7 +17,7 @@ class ApiUrl {
   // - Local: http://TU_IP_LOCAL
   // - Azure: http://TU_IP_AZURE
   // - Producción: http://TU_DOMINIO
-  static const String serverIP = 'TU_IP_AQUI';
+  static const String serverIP = '57.154.17.34';
   static const String port = '8000';
 
   /// URL base del backend

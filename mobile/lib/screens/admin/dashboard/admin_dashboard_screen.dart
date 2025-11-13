@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../services/dashboard_admin_service.dart';
+import '../admin_drawer.dart';
 
 class AdminDashboardScreen extends StatefulWidget {
   const AdminDashboardScreen({super.key});
@@ -74,6 +75,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           ),
         ],
       ),
+      drawer: const AdminDrawer(currentRoute: '/admin/dashboard'),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : _error != null

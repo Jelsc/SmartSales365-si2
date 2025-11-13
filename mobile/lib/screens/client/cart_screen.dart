@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../services/cart_provider.dart';
-import '../../services/payment_service.dart';
+import '../../services/carrito_service.dart';
+import 'checkout_screen.dart';
 
 class CartScreen extends StatefulWidget {
   final CartProvider cartProvider;
@@ -12,7 +13,7 @@ class CartScreen extends StatefulWidget {
 }
 
 class _CartScreenState extends State<CartScreen> {
-  final PaymentService _paymentService = PaymentService();
+  final CarritoService _carritoService = CarritoService();
   bool _isProcessing = false;
 
   @override
@@ -245,7 +246,7 @@ class _CartScreenState extends State<CartScreen> {
         color: Colors.white,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.1),
+            color: Colors.black.withValues(alpha: 0.1),
             blurRadius: 10,
             offset: const Offset(0, -5),
           ),
@@ -313,40 +314,59 @@ class _CartScreenState extends State<CartScreen> {
   }
 
   Future<void> _handleCheckout() async {
+    if (widget.cartProvider.itemCount == 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('El carrito está vacío'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
     setState(() => _isProcessing = true);
 
     try {
-      final success = await _paymentService.processPayment(
-        items: widget.cartProvider.items,
-        context: context,
-        descripcion: 'Compra de ${widget.cartProvider.totalQuantity} productos',
-      );
+      // Sincronizar items del CartProvider local con el carrito del backend
+      for (final item in widget.cartProvider.items) {
+        await _carritoService.agregarItem(item.product.id, item.quantity);
+      }
 
-      if (success && mounted) {
-        // Limpiar carrito
-        widget.cartProvider.clear();
+      // Obtener el carrito del backend
+      final carrito = await _carritoService.obtenerCarrito();
 
-        // Mostrar mensaje de éxito
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('✅ Pago procesado exitosamente'),
-            backgroundColor: Colors.green,
-            duration: Duration(seconds: 3),
+      if (mounted) {
+        setState(() => _isProcessing = false);
+
+        // Navegar a la pantalla de checkout
+        final result = await Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => CheckoutScreen(carrito: carrito),
           ),
         );
 
-        // Volver a la pantalla anterior
-        Navigator.pop(context);
+        // Si el checkout fue exitoso, limpiar el carrito local
+        if (result == true && mounted) {
+          widget.cartProvider.clear();
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('✅ Pedido realizado exitosamente'),
+              backgroundColor: Colors.green,
+              duration: Duration(seconds: 3),
+            ),
+          );
+        }
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
-        );
-      }
-    } finally {
-      if (mounted) {
         setState(() => _isProcessing = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error al sincronizar carrito: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
       }
     }
   }
