@@ -22,15 +22,39 @@ class PaymentService {
   }
 
   /// Inicializar Stripe
+  /// 
+  /// Si la clave local no está configurada, Stripe se inicializará
+  /// con la clave del backend cuando se cree el primer payment intent.
   Future<void> initializeStripe() async {
     try {
-      // Obtener la clave desde el archivo de configuración
-      final publishableKey = StripeConfig.getPublishableKey();
+      // Intentar obtener la clave local, pero no fallar si no está configurada
+      if (StripeConfig.hasAnyKey()) {
+        final publishableKey = StripeConfig.getPublishableKey();
+        Stripe.publishableKey = publishableKey;
+        await Stripe.instance.applySettings();
+        print('✅ Stripe inicializado correctamente con clave local');
+      } else {
+        print('⚠️ Stripe no se inicializó: la clave se obtendrá del backend al crear un pago');
+      }
+    } catch (e) {
+      print('⚠️ Stripe no se inicializó: $e');
+      print('⚠️ La clave se obtendrá del backend al crear un pago');
+      // No relanzar la excepción, permitir que se inicialice después
+    }
+  }
+
+  /// Inicializar o actualizar Stripe con una clave del backend
+  Future<void> initializeStripeWithKey(String publishableKey) async {
+    try {
+      // Guardar la clave del backend en la configuración
+      StripeConfig.setBackendKey(publishableKey);
+      
+      // Inicializar Stripe con la clave del backend
       Stripe.publishableKey = publishableKey;
       await Stripe.instance.applySettings();
-      print('✅ Stripe inicializado correctamente');
+      print('✅ Stripe inicializado/actualizado con clave del backend');
     } catch (e) {
-      print('❌ Error al inicializar Stripe: $e');
+      print('❌ Error al inicializar Stripe con clave del backend: $e');
       rethrow;
     }
   }
@@ -69,15 +93,15 @@ class PaymentService {
           '[PAYMENT] ✅ Payment intent creado: ${data['payment_intent_id']}',
         );
 
-        // Verificar que la publishable_key del backend coincida con la configurada
+        // Obtener y usar la clave del backend (tiene prioridad)
         final backendPublishableKey = data['publishable_key'];
-        if (backendPublishableKey != null &&
-            backendPublishableKey != StripeConfig.publishableKey) {
-          print(
-            '[PAYMENT] ⚠️ ADVERTENCIA: La clave pública del backend no coincide con la configurada',
-          );
-          print('[PAYMENT] Backend: $backendPublishableKey');
-          print('[PAYMENT] Mobile: ${StripeConfig.publishableKey}');
+        if (backendPublishableKey != null && backendPublishableKey.isNotEmpty) {
+          // Inicializar o actualizar Stripe con la clave del backend
+          try {
+            await initializeStripeWithKey(backendPublishableKey);
+          } catch (e) {
+            print('[PAYMENT] ⚠️ No se pudo actualizar Stripe con la clave del backend: $e');
+          }
         }
 
         return {
