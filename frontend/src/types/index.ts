@@ -27,3 +27,8 @@ export * from './bitacora';
 // TIPOS DE PRODUCTOS
 // ========================================
 export * from './producto';
+
+// ========================================
+// TIPOS DE PEDIDOS Y VENTAS
+// ========================================
+export * from './pedido';

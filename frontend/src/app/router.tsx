@@ -18,7 +18,12 @@ import ProductosPage from "@/pages/client/productos/productos.page";
 import ProductoDetallePage from "@/pages/client/productos/producto-detalle.page";
 import ProductosAdminPage from "@/pages/admin/productos/productos.page";
 import { CategoriasAdminPage } from "@/pages/admin/categorias/categorias.page";
+import VentasPage from "@/pages/admin/ventas/ventas.page";
 import OfertasPage from "@/pages/client/productos/ofertas.page";
+import CarritoPage from "@/pages/client/carrito/carrito.page";
+import CheckoutPage from "@/pages/client/checkout/checkout.page";
+import MisPedidosPage from "@/pages/client/mis-pedidos/mis-pedidos.page";
+import PedidoDetallePage from "@/pages/client/mis-pedidos/pedido-detalle.page";
 
 export default function AppRouter() {
   return (
@@ -30,6 +35,40 @@ export default function AppRouter() {
           <Route path="productos" element={<ProductosPage />} />
           <Route path="productos/:id" element={<ProductoDetallePage />} />
           <Route path="ofertas" element={<OfertasPage />} />
+          
+          {/* Rutas de carrito (requiere autenticación) */}
+          <Route
+            path="cart"
+            element={
+              <ProtectedRoute>
+                <CarritoPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="checkout"
+            element={
+              <ProtectedRoute>
+                <CheckoutPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="mis-pedidos"
+            element={
+              <ProtectedRoute>
+                <MisPedidosPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="mis-pedidos/:id"
+            element={
+              <ProtectedRoute>
+                <PedidoDetallePage />
+              </ProtectedRoute>
+            }
+          />
         </Route>
         
         {/* Rutas de autenticación sin layout */}
@@ -127,7 +166,7 @@ export default function AppRouter() {
           path="/admin/ventas"
           element={
             <ProtectedRoute requireAdmin={true}>
-              <div>Ventas (por implementar)</div>
+              <VentasPage />
             </ProtectedRoute>
           }
         />
@@ -151,7 +190,7 @@ export default function AppRouter() {
           path="/admin/pedidos"
           element={
             <ProtectedRoute requireAdmin={true}>
-              <div>Pedidos (por implementar)</div>
+              <VentasPage />
             </ProtectedRoute>
           }
         />

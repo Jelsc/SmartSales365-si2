@@ -81,12 +81,18 @@ docker compose exec backend python manage.py seed
 # Para ejecutar seeders específicos (por nombre, sin el sufijo "_seeder"):
 docker compose exec backend python manage.py seed user rol
 
-# Para ejecutar un nuevo seeder que acabas de crear (ejemplo: vehiculo_seeder.py):
-docker compose exec backend python manage.py seed vehiculo
+# Categorías
+docker-compose exec backend python manage.py seed categoria
+
+# Productos
+docker-compose exec backend python manage.py seed producto
+
+# Métodos de pago
+docker-compose exec backend python manage.py seed metodopago
 
 # Para forzar la ejecución aunque should_run() devuelva False:
 docker compose exec backend python manage.py seed --force
-docker compose exec backend python manage.py seed vehiculo --force
+docker compose exec backend python manage.py seed categoria --force
 
 #para parar detener los contenedores
 docker compose stop

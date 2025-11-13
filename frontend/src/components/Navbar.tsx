@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import SmartSalesIcon from "./app-logo";
 import { ShoppingCart, Menu, X } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
+import { useCart } from "@/context/CartContext";
 import { NavUserHeader } from "./nav-user-header";
 import { SearchBar } from "./SearchBar";
 
@@ -19,6 +20,7 @@ const Navbar = () => {
   const [menuOpen, setMenuOpen] = useState(false);
   const [activeModule, setActiveModule] = useState<string | null>(null);
   const { isAuthenticated, isLoading } = useAuth();
+  const { itemsCount } = useCart();
   
   return (
     <header className="bg-white shadow-sm sticky top-0 z-50">
@@ -42,6 +44,11 @@ const Navbar = () => {
 
             <Link to="/cart" className="relative p-2 hover:bg-gray-100 rounded-lg transition-colors flex-shrink-0">
               <ShoppingCart className="w-6 h-6 text-gray-700" />
+              {itemsCount > 0 && (
+                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
+                  {itemsCount}
+                </span>
+              )}
             </Link>
           </div>
 
@@ -222,9 +229,11 @@ const Navbar = () => {
                   <span className="font-medium text-blue-700">Mi Carrito</span>
                   <div className="flex items-center gap-2">
                     <ShoppingCart className="w-5 h-5 text-blue-600" />
-                    <span className="bg-red-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
-                      3
-                    </span>
+                    {itemsCount > 0 && (
+                      <span className="bg-red-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
+                        {itemsCount}
+                      </span>
+                    )}
                   </div>
                 </Link>
               </div>

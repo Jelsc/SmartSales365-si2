@@ -129,7 +129,9 @@ INSTALLED_APPS = [
     "conductores",
     "personal",
     "productos",  # 🆕 Módulo de productos
-    "reportes",   # 🆕 Módulo de reportes con voz
+    "carrito",  # 🆕 Módulo de carrito de compras
+    "ventas",  # 🆕 Módulo de pedidos y ventas
+    "pagos",  # 🆕 Módulo de pagos con Stripe
     # Requisito para allauth
     "django.contrib.sites",
     # Allauth (core + cuentas + social)
@@ -388,12 +390,8 @@ GOOGLE_OAUTH2_CLIENT_SECRET = os.getenv("GOOGLE_OAUTH2_CLIENT_SECRET", "")
 # Configuración de sitios para allauth
 SITE_ID = int(os.getenv("SITE_ID", "1"))
 
-# ====== STRIPE CONFIGURATION ======
+# Configuración de Stripe
 STRIPE_PUBLIC_KEY = os.getenv("STRIPE_PUBLIC_KEY", "")
 STRIPE_SECRET_KEY = os.getenv("STRIPE_SECRET_KEY", "")
 STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET", "")
 
-# URLs de retorno para pagos
-PAYMENT_SUCCESS_URL = os.getenv("PAYMENT_SUCCESS_URL", "http://localhost:5173/pago-exitoso")
-PAYMENT_CANCEL_URL = os.getenv("PAYMENT_CANCEL_URL", "http://localhost:5173/pago-cancelado")
-PAYMENT_CURRENCY_DEFAULT = os.getenv("PAYMENT_CURRENCY_DEFAULT", "BOB")
