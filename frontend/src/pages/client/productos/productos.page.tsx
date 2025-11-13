@@ -92,8 +92,35 @@ const ProductosPage: React.FC = () => {
   };
 
   const handleAddToCart = async (producto: Producto) => {
-    await agregarProducto(producto.id, 1);
-    toast.success(`Añadido "${producto.nombre}" al carrito`);
+    // Actualización optimista del stock
+    const actualizarStockLocal = (id: number) => {
+      setProductos(prev => prev.map(p => 
+        p.id === id ? { ...p, stock: Math.max(0, p.stock - 1) } : p
+      ));
+      setDestacados(prev => prev.map(p => 
+        p.id === id ? { ...p, stock: Math.max(0, p.stock - 1) } : p
+      ));
+    };
+
+    // Actualizar UI inmediatamente
+    actualizarStockLocal(producto.id);
+    
+    try {
+      await agregarProducto(producto.id, 1);
+      toast.success(`Añadido "${producto.nombre}" al carrito`);
+    } catch (error) {
+      // Si falla, revertir el cambio optimista
+      actualizarStockLocal(producto.id); // Esto no es perfecto, mejor refrescar
+      // Opcional: recargar productos para tener datos correctos
+      const response = await productosService.getAll(filters);
+      setProductos(response.results);
+      const destacadosData = await productosService.getAll({ 
+        destacado: true, 
+        activo: true,
+        page_size: 8 
+      });
+      setDestacados(destacadosData.results);
+    }
   };
 
   const handlePageChange = (newPage: number) => {

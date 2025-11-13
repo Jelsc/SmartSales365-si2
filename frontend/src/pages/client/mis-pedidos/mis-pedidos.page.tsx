@@ -62,7 +62,7 @@ const MisPedidosPage = () => {
 
   const formatPrice = (price: number | string) => {
     const numPrice = typeof price === 'string' ? parseFloat(price) : price;
-    return `Bs. ${numPrice.toFixed(2)}`;
+    return `Bs ${numPrice.toFixed(2)}`;
   };
 
   if (loading) {

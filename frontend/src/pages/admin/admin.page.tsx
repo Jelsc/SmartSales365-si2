@@ -38,6 +38,12 @@ interface ModuleOption {
 
 const sidebarModules: SidebarModule[] = [
   {
+    id: "dashboard",
+    name: "Dashboard Analytics",
+    icon: BarChart3,
+    route: "/admin/dashboard",
+  },
+  {
     id: "usuarios-sistema",
     name: "Usuarios y Seguridad",
     icon: ShieldCheck,

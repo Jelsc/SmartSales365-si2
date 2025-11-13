@@ -1,0 +1,3 @@
+# Esta carpeta almacena los modelos ML entrenados
+# No subir a git (agregar a .gitignore)
+*.pkl

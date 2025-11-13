@@ -197,9 +197,17 @@ class PedidoCreateSerializer(serializers.Serializer):
         
         # Crear items del pedido desde el carrito
         for item_carrito in carrito.items.all():
+            # Verificar stock disponible
+            producto = item_carrito.producto
+            if producto.stock < item_carrito.cantidad:
+                raise serializers.ValidationError(
+                    f'Stock insuficiente para {producto.nombre}. '
+                    f'Disponible: {producto.stock}, Solicitado: {item_carrito.cantidad}'
+                )
+            
             ItemPedido.objects.create(
                 pedido=pedido,
-                producto=item_carrito.producto,
+                producto=producto,
                 cantidad=item_carrito.cantidad,
                 precio_unitario=item_carrito.precio_unitario,
                 # nombre_producto, sku y subtotal se auto-completan en el save() del modelo
@@ -244,6 +252,27 @@ class ActualizarEstadoPedidoSerializer(serializers.Serializer):
         """Actualizar el estado del pedido"""
         nuevo_estado = validated_data.get('estado')
         notas_internas = validated_data.get('notas_internas', '')
+        estado_anterior = instance.estado
+        
+        # Reducir stock cuando el pedido se marca como PAGADO
+        if nuevo_estado == 'PAGADO' and estado_anterior != 'PAGADO':
+            for item in instance.items.all():
+                producto = item.producto
+                if producto.stock >= item.cantidad:
+                    producto.stock -= item.cantidad
+                    producto.save(update_fields=['stock'])
+                else:
+                    raise serializers.ValidationError(
+                        f'Stock insuficiente para {producto.nombre}. '
+                        f'Disponible: {producto.stock}, Requerido: {item.cantidad}'
+                    )
+        
+        # Restaurar stock si se cancela un pedido que estaba pagado
+        elif nuevo_estado == 'CANCELADO' and estado_anterior == 'PAGADO':
+            for item in instance.items.all():
+                producto = item.producto
+                producto.stock += item.cantidad
+                producto.save(update_fields=['stock'])
         
         # Actualizar estado (esto también actualiza las fechas automáticamente)
         instance.actualizar_estado(nuevo_estado)

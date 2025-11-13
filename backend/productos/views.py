@@ -15,6 +15,7 @@ from .serializers import (
     ProductoVarianteSerializer
 )
 from .filters import ProductoFilter
+from .semantic_search import buscar_productos_semantica, interpretar_consulta
 
 
 class CategoriaViewSet(viewsets.ModelViewSet):
@@ -312,6 +313,114 @@ class ProductoViewSet(viewsets.ModelViewSet):
             'disponible': disponible,
             'stock_actual': producto.stock,
             'cantidad_solicitada': cantidad
+        })
+    
+    @action(detail=False, methods=['get'])
+    def buscar(self, request):
+        """
+        Búsqueda inteligente de productos con IA semántica
+        GET /api/productos/buscar/?q=quiero una lavadora
+        GET /api/productos/buscar/?q=termo&mode=semantic
+        
+        Parámetros:
+        - q: término de búsqueda (requerido)
+        - mode: 'semantic' (IA) o 'basic' (tradicional). Por defecto: semantic
+        - page: número de página
+        - page_size: resultados por página
+        
+        Ejemplos de consultas con IA:
+        - "quiero una lavadora"
+        - "necesito un termo de 1 litro"
+        - "busco laptop gaming barata"
+        - "dame ofertas de electrodomésticos"
+        """
+        query = request.query_params.get('q', '').strip()
+        mode = request.query_params.get('mode', 'semantic')  # semantic o basic
+        
+        if not query:
+            return Response({
+                'count': 0,
+                'results': [],
+                'message': 'Por favor ingresa un término de búsqueda'
+            })
+        
+        # Interpretar la consulta (extrae intención, filtros, etc.)
+        interpretacion = interpretar_consulta(query)
+        
+        # QuerySet base de productos activos
+        productos_base = Producto.objects.filter(activo=True)
+        
+        # Aplicar filtros detectados por IA
+        if interpretacion.get('filtros', {}).get('en_oferta'):
+            productos_base = productos_base.filter(en_oferta=True)
+        
+        if interpretacion.get('filtros', {}).get('precio') == 'bajo':
+            # Ordenar por precio ascendente
+            productos_base = productos_base.order_by('precio')
+        elif interpretacion.get('filtros', {}).get('precio') == 'alto':
+            # Ordenar por precio descendente
+            productos_base = productos_base.order_by('-precio')
+        
+        # Elegir modo de búsqueda
+        if mode == 'semantic':
+            # 🤖 BÚSQUEDA SEMÁNTICA CON IA
+            # Entiende "quiero una lavadora" y encuentra lavadoras
+            try:
+                productos_list = buscar_productos_semantica(
+                    query=query,
+                    productos_queryset=productos_base,
+                    top_k=100  # Obtener top 100 para paginar después
+                )
+                productos = productos_list
+                modo_usado = 'semantic_ai'
+            except Exception as e:
+                print(f"⚠️ Error en búsqueda semántica, fallback a básica: {e}")
+                # Fallback a búsqueda básica si falla la IA
+                mode = 'basic'
+        
+        if mode == 'basic':
+            # 📝 BÚSQUEDA TRADICIONAL (palabras clave)
+            productos = productos_base.filter(
+                Q(nombre__icontains=query) |
+                Q(descripcion__icontains=query) |
+                Q(descripcion_corta__icontains=query) |
+                Q(marca__icontains=query) |
+                Q(modelo__icontains=query) |
+                Q(sku__icontains=query) |
+                Q(categoria__nombre__icontains=query)
+            ).distinct()
+            modo_usado = 'basic_keyword'
+        
+        # Aplicar paginación
+        page_size = int(request.query_params.get('page_size', 20))
+        page = int(request.query_params.get('page', 1))
+        
+        start = (page - 1) * page_size
+        end = start + page_size
+        
+        # Si es lista (semántica), convertir a queryset-like
+        if isinstance(productos, list):
+            total = len(productos)
+            productos_paginados = productos[start:end]
+        else:
+            total = productos.count()
+            productos_paginados = productos[start:end]
+        
+        serializer = ProductoListSerializer(
+            productos_paginados,
+            many=True,
+            context={'request': request}
+        )
+        
+        return Response({
+            'count': total,
+            'results': serializer.data,
+            'page': page,
+            'page_size': page_size,
+            'total_pages': (total + page_size - 1) // page_size,
+            'query': query,
+            'mode': modo_usado,
+            'interpretacion': interpretacion if mode == 'semantic' else None,
         })
 
 

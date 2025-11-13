@@ -132,6 +132,7 @@ INSTALLED_APPS = [
     "carrito",  # 🆕 Módulo de carrito de compras
     "ventas",  # 🆕 Módulo de pedidos y ventas
     "pagos",  # 🆕 Módulo de pagos con Stripe
+    "analytics",  # 🆕 Módulo de analytics y ML
     # Requisito para allauth
     "django.contrib.sites",
     # Allauth (core + cuentas + social)

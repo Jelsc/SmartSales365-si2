@@ -48,6 +48,9 @@ urlpatterns = [
     # Pagos: procesamiento de pagos con Stripe
     path("api/pagos/", include("pagos.urls")),
     
+    # Analytics: dashboard inteligente con ML
+    path("api/analytics/", include("analytics.urls")),
+    
     path("api/bitacora/", include("bitacora.urls")),
 
     # Auth social: endpoints para login social (navegador)
