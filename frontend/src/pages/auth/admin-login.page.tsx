@@ -24,7 +24,7 @@ export default function AdminLoginPage() {
   // Redirigir si ya está autenticado como admin
   useEffect(() => {
     if (isAuthenticated && isAdmin && !isLoading) {
-      navigate("/admin/home");
+      navigate("/panel/home");
     }
   }, [isAuthenticated, isAdmin, isLoading, navigate]);
 

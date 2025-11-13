@@ -60,8 +60,8 @@ const sidebarStructure = [
       { id: 'asignaciones', name: 'Asignaciones', icon: UserCheck, route: '/admin/asignaciones' },
     ]
   },
-  { id: 'notificaciones', name: 'Notificaciones', icon: Bell, route: "/admin/notificaciones" },
-  { id: 'bitacora', name: 'Bitácora', icon: BookOpen, route: "/admin/bitacora" },
+  { id: 'notificaciones', name: 'Notificaciones', icon: Bell, route: "/panel/notificaciones" },
+  { id: 'bitacora', name: 'Bitácora', icon: BookOpen, route: "/panel/bitacora" },
 ];
 
 // Generar mapas de rutas a partir de la estructura del sidebar
