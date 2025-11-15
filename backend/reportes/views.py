@@ -3,7 +3,7 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from django.http import HttpResponse
-from .prompt_parser import interpretar_prompt
+from .prompt_parser import interpretar_prompt, detectar_multiples_reportes
 from .report_generator import ReporteGenerator
 from .exporters import PDFExporter, ExcelExporter
 
@@ -21,7 +21,7 @@ def generar_reporte(request):
     }
     
     Returns:
-        - Si formato es 'pantalla': JSON con los datos
+        - Si formato es 'pantalla': JSON con los datos (puede ser múltiple)
         - Si formato es 'pdf' o 'excel': Archivo para descarga
     """
     try:
@@ -34,50 +34,95 @@ def generar_reporte(request):
                 status=status.HTTP_400_BAD_REQUEST
             )
         
-        # 1. Interpretar el prompt
-        parametros = interpretar_prompt(prompt)
+        # DEBUG: Log para ver qué estamos recibiendo
+        print(f"\n{'='*60}")
+        print(f"🔍 PROMPT RECIBIDO: {prompt}")
+        print(f"📄 FORMATO FORZADO: {formato_forzado}")
         
-        # Forzar formato si se proporcionó
+        # 1. Detectar si hay múltiples reportes en el prompt
+        prompts_separados = detectar_multiples_reportes(prompt)
+        print(f"📊 PROMPTS SEPARADOS: {len(prompts_separados)} reportes detectados")
+        for i, p in enumerate(prompts_separados, 1):
+            print(f"   Reporte {i}: {p}")
+        
+        # 2. Generar todos los reportes solicitados
+        reportes_generados = []
+        for sub_prompt in prompts_separados:
+            # Interpretar cada sub-prompt
+            parametros = interpretar_prompt(sub_prompt)
+            
+            # Forzar formato si se proporcionó
+            if formato_forzado:
+                parametros['formato'] = formato_forzado
+            
+            # Generar datos del reporte
+            generator = ReporteGenerator()
+            datos_reporte = generator.generar_datos(parametros)
+            reportes_generados.append(datos_reporte)
+        
+        # 3. Determinar formato final
         if formato_forzado:
-            parametros['formato'] = formato_forzado
+            formato = formato_forzado
+        else:
+            # Usar el formato del primer reporte
+            formato = reportes_generados[0]['parametros'].get('formato', 'pantalla')
         
-        # 2. Generar datos del reporte
-        generator = ReporteGenerator()
-        datos_reporte = generator.generar_datos(parametros)
+        # 4. Si es pantalla y hay múltiples reportes
+        if formato == 'pantalla':
+            if len(reportes_generados) > 1:
+                return Response({
+                    'success': True,
+                    'reportes': reportes_generados,
+                    'cantidad_reportes': len(reportes_generados)
+                })
+            else:
+                # Un solo reporte
+                return Response({
+                    'success': True,
+                    'parametros_interpretados': reportes_generados[0]['parametros'],
+                    'reporte': reportes_generados[0]
+                })
         
-        # 3. Exportar según el formato
-        formato = parametros.get('formato', 'pantalla')
-        
+        # 5. Si es PDF o Excel (uno o múltiples reportes)
         if formato == 'pdf':
-            # Generar PDF
+            from datetime import datetime
+            # Generar PDF con múltiples reportes
+            print(f"📄 GENERANDO PDF con {len(reportes_generados)} reporte(s)")
             exporter = PDFExporter()
-            buffer = exporter.generar(datos_reporte)
+            if len(reportes_generados) > 1:
+                print(f"   ✅ Usando generar_multiple() para {len(reportes_generados)} reportes")
+                buffer = exporter.generar_multiple(reportes_generados)
+                filename = f"reportes_combinados_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
+            else:
+                print(f"   ⚠️ Usando generar() para 1 reporte")
+                buffer = exporter.generar(reportes_generados[0])
+                titulo = reportes_generados[0].get('titulo', 'reporte').replace(' ', '_')
+                filename = f"{titulo}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
+            print(f"📥 Archivo generado: {filename}")
+            print(f"{'='*60}\n")
             
             response = HttpResponse(buffer.getvalue(), content_type='application/pdf')
-            filename = f"reporte_{parametros['tipo']}_{datos_reporte['titulo'].replace(' ', '_')}.pdf"
             response['Content-Disposition'] = f'attachment; filename="{filename}"'
             return response
         
         elif formato == 'excel':
-            # Generar Excel
+            from datetime import datetime
+            # Generar Excel con múltiples reportes
             exporter = ExcelExporter()
-            buffer = exporter.generar(datos_reporte)
+            if len(reportes_generados) > 1:
+                buffer = exporter.generar_multiple(reportes_generados)
+                filename = f"reportes_combinados_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+            else:
+                buffer = exporter.generar(reportes_generados[0])
+                titulo = reportes_generados[0].get('titulo', 'reporte').replace(' ', '_')
+                filename = f"{titulo}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
             
             response = HttpResponse(
                 buffer.getvalue(),
                 content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
             )
-            filename = f"reporte_{parametros['tipo']}_{datos_reporte['titulo'].replace(' ', '_')}.xlsx"
             response['Content-Disposition'] = f'attachment; filename="{filename}"'
             return response
-        
-        else:  # pantalla
-            # Retornar JSON con los datos
-            return Response({
-                'success': True,
-                'parametros_interpretados': parametros,
-                'reporte': datos_reporte
-            })
     
     except Exception as e:
         return Response(

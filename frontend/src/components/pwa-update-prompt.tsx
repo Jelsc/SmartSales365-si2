@@ -13,7 +13,6 @@ export function PWAUpdatePrompt() {
     updateServiceWorker,
   } = useRegisterSW({
     onRegistered(r) {
-      console.log('Service Worker registrado:', r);
     },
     onRegisterError(error) {
       console.log('Error al registrar Service Worker:', error);

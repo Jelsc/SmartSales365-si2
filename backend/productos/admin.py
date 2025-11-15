@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Categoria, Producto, ProductoImagen, ProductoVariante
+from .models import Categoria, Producto, ProductoImagen, ProductoVariante, Favorito
 
 
 class ProductoImagenInline(admin.TabularInline):
@@ -101,3 +101,12 @@ class ProductoVarianteAdmin(admin.ModelAdmin):
     list_filter = ['activa', 'producto__categoria', 'creado']
     search_fields = ['nombre', 'sku', 'producto__nombre']
     ordering = ['producto', 'nombre']
+
+
+@admin.register(Favorito)
+class FavoritoAdmin(admin.ModelAdmin):
+    list_display = ['usuario', 'producto', 'creado']
+    list_filter = ['creado', 'producto__categoria']
+    search_fields = ['usuario__username', 'usuario__email', 'producto__nombre']
+    ordering = ['-creado']
+    readonly_fields = ['creado']

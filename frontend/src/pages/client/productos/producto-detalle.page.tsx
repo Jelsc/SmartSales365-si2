@@ -35,11 +35,22 @@ const ProductoDetallePage: React.FC = () => {
       
       setLoading(true);
       try {
-        const data = await productosService.getById(parseInt(id));
+        // El backend acepta tanto ID numérico como slug
+        // Si id es numérico, usar parseInt; si no, usar el slug directamente
+        const productId = /^\d+$/.test(id) ? parseInt(id) : id;
+        const data = await productosService.getById(productId);
         setProducto(data);
         
-        // Verificar si está en favoritos
-        setEsFavorito(isFavorito(data.id));
+        // Verificar si está en favoritos (necesitamos el ID numérico del producto)
+        try {
+          if (data.id && typeof data.id === 'number') {
+            const favorito = await isFavorito(data.id);
+            setEsFavorito(favorito);
+          }
+        } catch (error) {
+          console.error('Error al verificar favorito:', error);
+          setEsFavorito(false);
+        }
         
         // Seleccionar primera variante si existe
         if (data.variantes && data.variantes.length > 0) {
@@ -104,16 +115,21 @@ const ProductoDetallePage: React.FC = () => {
     }
   };
 
-  const handleToggleFavorito = () => {
+  const handleToggleFavorito = async () => {
     if (!producto) return;
     
-    const isNowFavorite = toggleFavorito(producto.id);
-    setEsFavorito(isNowFavorite);
-    
-    if (isNowFavorite) {
-      toast.success('Producto agregado a favoritos');
-    } else {
-      toast.success('Producto eliminado de favoritos');
+    try {
+      const isNowFavorite = await toggleFavorito(producto.id);
+      setEsFavorito(isNowFavorite);
+      
+      if (isNowFavorite) {
+        toast.success('Producto agregado a favoritos');
+      } else {
+        toast.success('Producto eliminado de favoritos');
+      }
+    } catch (error) {
+      console.error('Error al alternar favorito:', error);
+      toast.error('Error al actualizar favoritos');
     }
   };
 

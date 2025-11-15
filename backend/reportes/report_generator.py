@@ -1,7 +1,7 @@
 """
 Generador de reportes dinámicos basado en parámetros interpretados
 """
-from django.db.models import Count, Sum, Avg, Q, F
+from django.db.models import Count, Sum, Avg, Q, F, Min, Max
 from django.db.models.functions import TruncDate, TruncMonth
 from datetime import datetime
 from typing import Dict, List
@@ -133,7 +133,6 @@ class ReporteGenerator:
             ultima_compra=Max('creado')
         ).order_by('-monto_total')
         
-        from django.db.models import Min, Max
         
         ventas = queryset.values(
             'usuario__email',

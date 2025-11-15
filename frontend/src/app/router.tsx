@@ -23,6 +23,7 @@ import OfertasPage from "@/pages/client/productos/ofertas.page";
 import CarritoPage from "@/pages/client/carrito/carrito.page";
 import CheckoutPage from "@/pages/client/checkout/checkout.page";
 import MisPedidosPage from "@/pages/client/mis-pedidos/mis-pedidos.page";
+import FavoritosPage from "@/pages/client/favoritos/favoritos.page";
 import PedidoDetallePage from "@/pages/client/mis-pedidos/pedido-detalle.page";
 import BuscarPage from "@/pages/client/buscar/buscar.page";
 import DashboardPage from "@/pages/admin/dashboard/dashboard.page";
@@ -70,6 +71,14 @@ export default function AppRouter() {
             element={
               <ProtectedRoute>
                 <PedidoDetallePage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="favoritos"
+            element={
+              <ProtectedRoute>
+                <FavoritosPage />
               </ProtectedRoute>
             }
           />

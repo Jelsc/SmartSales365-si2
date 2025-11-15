@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Categoria, Producto, ProductoImagen, ProductoVariante
+from .models import Categoria, Producto, ProductoImagen, ProductoVariante, Favorito
 
 
 class CategoriaSerializer(serializers.ModelSerializer):
@@ -244,3 +244,18 @@ class ProductoCreateUpdateSerializer(serializers.ModelSerializer):
                 )
         
         return data
+
+
+class FavoritoSerializer(serializers.ModelSerializer):
+    """Serializer para favoritos"""
+    producto = ProductoListSerializer(read_only=True)
+    producto_id = serializers.PrimaryKeyRelatedField(
+        queryset=Producto.objects.all(),
+        source='producto',
+        write_only=True
+    )
+    
+    class Meta:
+        model = Favorito
+        fields = ['id', 'producto', 'producto_id', 'creado']
+        read_only_fields = ['creado']

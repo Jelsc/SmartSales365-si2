@@ -25,12 +25,12 @@ export default function ProtectedRoute({
 
   // Si no está autenticado, redirige al login
   if (!isAuthenticated) {
-    return <Navigate to={requireAdmin ? "/admin" : "/login"} state={{ from: location }} replace />;
+    return <Navigate to={requireAdmin ? "/panel" : "/login"} state={{ from: location }} replace />;
   }
 
   // Si requiere admin pero el usuario no lo es, redirige al login admin
   if (requireAdmin && (!user?.rol?.es_administrativo)) {
-    return <Navigate to="/admin" state={{ from: location }} replace />;
+    return <Navigate to="/panel" state={{ from: location }} replace />;
   }
 
   // Si está autenticado y cumple los requisitos, muestra el contenido

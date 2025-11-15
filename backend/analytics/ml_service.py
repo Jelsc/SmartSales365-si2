@@ -323,6 +323,7 @@ class ProductosAnalyzer:
         productos = ItemPedido.objects.values(
             'producto__id',
             'producto__nombre',
+            'producto__categoria__nombre',
             'producto__imagen'
         ).annotate(
             total_vendido=Sum('cantidad'),

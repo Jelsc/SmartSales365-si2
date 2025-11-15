@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import SmartSalesIcon from "./app-logo";
-import { ShoppingCart, Menu, X, Package } from "lucide-react";
+import { ShoppingCart, Menu, X, Package, Heart } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { useCart } from "@/context/CartContext";
 import { NavUserHeader } from "./nav-user-header";
@@ -30,7 +30,7 @@ const Navbar = () => {
           {/* Center group: Logo + Search + Cart */}
           <div className="hidden md:flex items-center gap-4 flex-1 justify-center">
             {/* Logo */}
-            <Link to="/" className="flex items-center gap-2 flex-shrink-0">
+            <Link to="/panel" className="flex items-center gap-2 flex-shrink-0">
               <SmartSalesIcon className="w-10 h-10" />
               <div className="hidden sm:block">
                 <div className="text-blue-600 font-bold text-xl leading-none">SmartSales</div>
@@ -41,13 +41,6 @@ const Navbar = () => {
             <div className="flex-1 max-w-2xl">
               <SearchBar />
             </div>
-
-            {isAuthenticated && (
-              <Link to="/mis-pedidos" className="p-2 hover:bg-gray-100 rounded-lg transition-colors flex-shrink-0" title="Mis Pedidos">
-                <Package className="w-6 h-6 text-gray-700" />
-              </Link>
-            )}
-
             <Link to="/cart" className="relative p-2 hover:bg-gray-100 rounded-lg transition-colors flex-shrink-0">
               <ShoppingCart className="w-6 h-6 text-gray-700" />
               {itemsCount > 0 && (
@@ -56,6 +49,16 @@ const Navbar = () => {
                 </span>
               )}
             </Link>
+            {isAuthenticated && (
+              <>
+                <Link to="/mis-pedidos" className="p-2 hover:bg-gray-100 rounded-lg transition-colors flex-shrink-0" title="Mis Pedidos">
+                  <Package className="w-6 h-6 text-gray-700" />
+                </Link>
+                <Link to="/favoritos" className="p-2 hover:bg-gray-100 rounded-lg transition-colors flex-shrink-0" title="Favoritos">
+                  <Heart className="w-6 h-6 text-gray-700" />
+                </Link>
+              </>
+            )}
           </div>
 
           {/* Mobile: Logo only */}
@@ -229,8 +232,25 @@ const Navbar = () => {
               <div className="space-y-3">
                 <NavUserHeader />
                 <Link
+                  to="/favoritos"
+                  className="flex items-center justify-between p-3 bg-red-50 rounded-xl hover:bg-red-100 transition-colors mb-2"
+                  onClick={() => setMenuOpen(false)}
+                >
+                  <span className="font-medium text-red-700">Mis Favoritos</span>
+                  <Heart className="w-5 h-5 text-red-600" />
+                </Link>
+                <Link
+                  to="/mis-pedidos"
+                  className="flex items-center justify-between p-3 bg-blue-50 rounded-xl hover:bg-blue-100 transition-colors mb-2"
+                  onClick={() => setMenuOpen(false)}
+                >
+                  <span className="font-medium text-blue-700">Mis Pedidos</span>
+                  <Package className="w-5 h-5 text-blue-600" />
+                </Link>
+                <Link
                   to="/cart"
                   className="flex items-center justify-between p-3 bg-blue-50 rounded-xl hover:bg-blue-100 transition-colors"
+                  onClick={() => setMenuOpen(false)}
                 >
                   <span className="font-medium text-blue-700">Mi Carrito</span>
                   <div className="flex items-center gap-2">

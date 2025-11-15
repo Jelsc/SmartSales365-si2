@@ -21,6 +21,7 @@ class ProductoTopSerializer(serializers.Serializer):
     """Serializer para productos top"""
     producto__id = serializers.IntegerField()
     producto__nombre = serializers.CharField()
+    producto__categoria__nombre = serializers.CharField()
     producto__imagen = serializers.CharField(allow_null=True)
     total_vendido = serializers.IntegerField()
     ingresos_totales = serializers.FloatField()

@@ -21,25 +21,37 @@ export interface DatosReporte {
   parametros: ParametrosReporte;
 }
 
+export interface RespuestaMultiReporte {
+  reportes: DatosReporte[];
+  cantidad_reportes: number;
+}
+
 export interface InterpretacionReporte {
   parametros: ParametrosReporte;
   interpretacion: string[];
   prompt_original: string;
 }
 
+export interface ArchivoDescarga {
+  blob: Blob;
+  filename: string;
+}
+
 class ReportesService {
   /**
    * Generar un reporte desde un prompt de texto
    */
-  async generarReporte(prompt: string, formato?: 'pantalla' | 'pdf' | 'excel'): Promise<DatosReporte | Blob> {
+  async generarReporte(prompt: string, formato?: 'pantalla' | 'pdf' | 'excel'): Promise<DatosReporte | RespuestaMultiReporte | ArchivoDescarga> {
+    
     const body: any = { prompt };
     if (formato) {
       body.formato = formato;
     }
 
-    // Si es PDF o Excel, retornar Blob
+    // Si es PDF o Excel, retornar Blob con metadata
     if (formato === 'pdf' || formato === 'excel') {
       const apiBaseUrl = getApiBaseUrl();
+      
       const response = await fetch(`${apiBaseUrl}/api/reportes/generar/`, {
         method: 'POST',
         headers: {
@@ -48,6 +60,7 @@ class ReportesService {
         },
         body: JSON.stringify(body)
       });
+
 
       if (!response.ok) {
         let errorMsg = 'Error al generar reporte';
@@ -60,11 +73,23 @@ class ReportesService {
         throw new Error(errorMsg);
       }
 
-      return response.blob();
+      // Extraer nombre de archivo del header Content-Disposition
+      const contentDisposition = response.headers.get('Content-Disposition');
+      let filename = `reporte_${new Date().getTime()}.${formato === 'pdf' ? 'pdf' : 'xlsx'}`;
+      
+      if (contentDisposition) {
+        const filenameMatch = contentDisposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/);
+        if (filenameMatch && filenameMatch[1]) {
+          filename = filenameMatch[1].replace(/['"]/g, '');
+        }
+      }
+
+      const blob = await response.blob();
+      return { blob, filename };
     }
 
     // Si es pantalla, retornar JSON usando apiRequest (que ya incluye la base URL)
-    const response = await apiRequest<{ reporte: DatosReporte }>(
+    const response = await apiRequest<{ reporte?: DatosReporte; reportes?: DatosReporte[]; cantidad_reportes?: number }>(
       '/api/reportes/generar/',
       {
         method: 'POST',
@@ -72,7 +97,16 @@ class ReportesService {
       }
     );
 
-    return response.data!.reporte;
+    // Si hay múltiples reportes, retornar la estructura completa
+    if (response.data!.reportes && response.data!.cantidad_reportes) {
+      return {
+        reportes: response.data!.reportes,
+        cantidad_reportes: response.data!.cantidad_reportes
+      };
+    }
+
+    // Si es un solo reporte, retornarlo directamente
+    return response.data!.reporte!;
   }
 
   /**
@@ -93,15 +127,27 @@ class ReportesService {
   /**
    * Descargar un archivo (PDF o Excel)
    */
-  descargarArchivo(blob: Blob, nombre: string, extension: 'pdf' | 'xlsx') {
-    const url = window.URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `${nombre}.${extension}`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    window.URL.revokeObjectURL(url);
+  descargarArchivo(blob: Blob, filename: string) {
+    try {
+      // Verificar que el blob no esté vacío
+      if (blob.size === 0) {
+        throw new Error('El archivo está vacío');
+      }
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = filename;
+      link.style.display = 'none';
+      document.body.appendChild(link);
+      link.click();
+      // Limpiar después de un pequeño delay
+      setTimeout(() => {
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(url);
+      }, 100);
+    } catch (error) {
+      throw error;
+    }
   }
 }
 

@@ -23,12 +23,17 @@ export function PWAInstallButton() {
   const [isStandalone, setIsStandalone] = useState(false);
 
   useEffect(() => {
+    // Verificar si ya fue rechazado previamente
+    const wasDismissed = localStorage.getItem('pwa-install-dismissed');
+    if (wasDismissed === 'true') {
+      return;
+    }
+
     // Verificar si ya está instalada (modo standalone)
     const standalone = window.matchMedia('(display-mode: standalone)').matches;
     setIsStandalone(standalone);
 
     if (standalone) {
-      console.log('✅ PWA: Ya está instalada (modo standalone)');
       return;
     }
 
@@ -37,17 +42,14 @@ export function PWAInstallButton() {
       e.preventDefault();
       setDeferredPrompt(e as BeforeInstallPromptEvent);
       setShowInstallButton(true);
-      console.log('💾 PWA: Evento de instalación capturado (localhost)');
     };
 
     window.addEventListener('beforeinstallprompt', handler);
 
     // Si no está instalada, mostrar el botón después de 2 segundos
-    // (incluso si no hay evento beforeinstallprompt)
     const timer = setTimeout(() => {
       if (!standalone && !showInstallButton) {
         setShowInstallButton(true);
-        console.log('💾 PWA: Botón de instalación mostrado (red local/producción)');
       }
     }, 2000);
 
@@ -55,7 +57,7 @@ export function PWAInstallButton() {
       window.removeEventListener('beforeinstallprompt', handler);
       clearTimeout(timer);
     };
-  }, [showInstallButton]);
+  }, []);
 
   const handleInstallClick = async () => {
     if (deferredPrompt) {
@@ -63,28 +65,25 @@ export function PWAInstallButton() {
       try {
         await deferredPrompt.prompt();
         const { outcome } = await deferredPrompt.userChoice;
-        
-        console.log(`👤 Usuario ${outcome === 'accepted' ? 'aceptó' : 'rechazó'} la instalación`);
 
         if (outcome === 'accepted') {
           setShowInstallButton(false);
+          localStorage.setItem('pwa-install-dismissed', 'true');
         }
 
         setDeferredPrompt(null);
       } catch (error) {
-        console.error('Error al mostrar prompt de instalación:', error);
         setShowInstructions(true);
       }
     } else {
       // Si no tenemos el evento (red local), mostrar instrucciones
-      console.log('⚠️ PWA: Mostrando instrucciones manuales (no localhost)');
       setShowInstructions(true);
     }
   };
 
   const handleDismiss = () => {
     setShowInstallButton(false);
-    console.log('❌ PWA: Botón de instalación ocultado por el usuario');
+    localStorage.setItem('pwa-install-dismissed', 'true');
   };
 
   // No mostrar si ya está instalada

@@ -18,7 +18,7 @@ import {
   LineChart as LineChartIcon
 } from 'lucide-react';
 import { analyticsService, type MetricasGenerales, type PrediccionVentasResponse, type GraficoVentasDiarias, type ProductoTop, type ProductoBajoStock } from '@/services/analyticsService';
-import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
+import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell, Label } from 'recharts';
 import { toast } from 'sonner';
 
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
@@ -29,39 +29,80 @@ export default function DashboardPage() {
   
   // Estados para los datos
   const [metricas, setMetricas] = useState<MetricasGenerales | null>(null);
-  const [prediccion, setPrediccion] = useState<PrediccionVentasResponse | null>(null);
-  const [ventasDiarias, setVentasDiarias] = useState<GraficoVentasDiarias | null>(null);
   const [productosTop, setProductosTop] = useState<ProductoTop[]>([]);
   const [productosBajoStock, setProductosBajoStock] = useState<ProductoBajoStock[]>([]);
-  const [diasPrediccion, setDiasPrediccion] = useState(7);
-  const [diasGrafico, setDiasGrafico] = useState(30);
+  
+  // Precargamos todas las predicciones y gráficos
+  const [predicciones, setPredicciones] = useState<{
+    dias7: PrediccionVentasResponse | null;
+    dias14: PrediccionVentasResponse | null;
+    dias30: PrediccionVentasResponse | null;
+  }>({
+    dias7: null,
+    dias14: null,
+    dias30: null,
+  });
+  
+  const [ventasDiarias, setVentasDiarias] = useState<{
+    dias7: GraficoVentasDiarias | null;
+    dias30: GraficoVentasDiarias | null;
+    dias90: GraficoVentasDiarias | null;
+  }>({
+    dias7: null,
+    dias30: null,
+    dias90: null,
+  });
+  
+  // Estados para UI (qué tab está activo)
+  const [diasPrediccion, setDiasPrediccion] = useState<7 | 14 | 30>(7);
+  const [diasGrafico, setDiasGrafico] = useState<7 | 30 | 90>(30);
 
   useEffect(() => {
     cargarDatos();
-  }, [diasPrediccion, diasGrafico]);
+  }, []); // Solo se ejecuta una vez al montar
 
   const cargarDatos = async () => {
     try {
       setLoading(true);
       
-      // Cargar datos en paralelo
+      // Cargar TODOS los datos en paralelo (una sola vez)
       const [
         metricasData,
-        prediccionData,
-        ventasData,
+        prediccion7,
+        prediccion14,
+        prediccion30,
+        ventas7,
+        ventas30,
+        ventas90,
         productosData,
         stockData
       ] = await Promise.all([
         analyticsService.getMetricasGenerales(),
-        analyticsService.getPrediccionVentas(diasPrediccion),
-        analyticsService.getGraficoVentasDiarias(diasGrafico),
+        // Predicciones para 7, 14 y 30 días
+        analyticsService.getPrediccionVentas(7),
+        analyticsService.getPrediccionVentas(14),
+        analyticsService.getPrediccionVentas(30),
+        // Gráficos históricos para 7, 30 y 90 días
+        analyticsService.getGraficoVentasDiarias(7),
+        analyticsService.getGraficoVentasDiarias(30),
+        analyticsService.getGraficoVentasDiarias(90),
+        // Productos
         analyticsService.getProductosTop(10),
         analyticsService.getProductosBajoStock(10)
       ]);
 
       setMetricas(metricasData);
-      setPrediccion(prediccionData);
-      setVentasDiarias(ventasData);
+      setPredicciones({
+        dias7: prediccion7,
+        dias14: prediccion14,
+        dias30: prediccion30,
+      });
+      setVentasDiarias({
+        dias7: ventas7,
+        dias30: ventas30,
+        dias90: ventas90,
+      });
+      console.log('Productos recibidos:', productosData.productos);
       setProductosTop(productosData.productos);
       setProductosBajoStock(stockData.productos);
     } catch (error) {
@@ -81,9 +122,18 @@ export default function DashboardPage() {
       
       toast.success(resultado.mensaje);
       
-      // Recargar predicciones
-      const nuevaPrediccion = await analyticsService.getPrediccionVentas(diasPrediccion);
-      setPrediccion(nuevaPrediccion);
+      // Recargar TODAS las predicciones
+      const [pred7, pred14, pred30] = await Promise.all([
+        analyticsService.getPrediccionVentas(7),
+        analyticsService.getPrediccionVentas(14),
+        analyticsService.getPrediccionVentas(30),
+      ]);
+      
+      setPredicciones({
+        dias7: pred7,
+        dias14: pred14,
+        dias30: pred30,
+      });
     } catch (error) {
       console.error('Error entrenando modelo:', error);
       toast.error('Error al entrenar el modelo');
@@ -132,7 +182,7 @@ export default function DashboardPage() {
             ) : (
               <>
                 <Sparkles className="w-4 h-4 mr-2" />
-                Re-entrenar IA
+                Actualizar Predicciones
               </>
             )}
           </Button>
@@ -236,39 +286,26 @@ export default function DashboardPage() {
           <TabsContent value="predicciones" className="space-y-4">
             <Card>
               <CardHeader>
-                <div className="flex items-center justify-between">
+                <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
                   <div>
                     <CardTitle className="flex items-center gap-2">
                       <Sparkles className="w-5 h-5 text-purple-600" />
                       Predicción de Ventas (Machine Learning)
                     </CardTitle>
                     <CardDescription>
-                      Modelo: {prediccion?.modelo} • Confiabilidad: {prediccion?.confiabilidad}
+                      Modelo: {predicciones[`dias${diasPrediccion}` as keyof typeof predicciones]?.modelo} • Confiabilidad: {predicciones[`dias${diasPrediccion}` as keyof typeof predicciones]?.confiabilidad}
                     </CardDescription>
                   </div>
-                  <div className="flex gap-2">
-                    <Button 
-                      variant={diasPrediccion === 7 ? 'default' : 'outline'} 
-                      size="sm"
-                      onClick={() => setDiasPrediccion(7)}
-                    >
-                      7 días
-                    </Button>
-                    <Button 
-                      variant={diasPrediccion === 14 ? 'default' : 'outline'} 
-                      size="sm"
-                      onClick={() => setDiasPrediccion(14)}
-                    >
-                      14 días
-                    </Button>
-                    <Button 
-                      variant={diasPrediccion === 30 ? 'default' : 'outline'} 
-                      size="sm"
-                      onClick={() => setDiasPrediccion(30)}
-                    >
-                      30 días
-                    </Button>
-                  </div>
+                  <Tabs 
+                    value={diasPrediccion.toString()} 
+                    onValueChange={(value) => setDiasPrediccion(Number(value) as 7 | 14 | 30)}
+                  >
+                    <TabsList>
+                      <TabsTrigger value="7">7 días</TabsTrigger>
+                      <TabsTrigger value="14">14 días</TabsTrigger>
+                      <TabsTrigger value="30">30 días</TabsTrigger>
+                    </TabsList>
+                  </Tabs>
                 </div>
               </CardHeader>
               <CardContent>
@@ -277,17 +314,17 @@ export default function DashboardPage() {
                     <div>
                       <p className="text-sm text-purple-700 font-medium">Total Estimado</p>
                       <p className="text-2xl font-bold text-purple-900">
-                        Bs {prediccion?.total_estimado.toLocaleString()}
+                        Bs {predicciones[`dias${diasPrediccion}` as keyof typeof predicciones]?.total_estimado.toLocaleString()}
                       </p>
                     </div>
-                    <Badge className="bg-purple-600">
+                    <Badge className="bg-purple-600 text-white">
                       Próximos {diasPrediccion} días
                     </Badge>
                 </div>
               </div>
 
               <ResponsiveContainer width="100%" height={300}>
-                <LineChart data={prediccion?.predicciones || []}>
+                <LineChart data={predicciones[`dias${diasPrediccion}` as keyof typeof predicciones]?.predicciones || []}>
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="dia_nombre" />
                     <YAxis />
@@ -314,41 +351,28 @@ export default function DashboardPage() {
           <TabsContent value="historico" className="space-y-4">
             <Card>
               <CardHeader>
-                <div className="flex items-center justify-between">
+                <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
                   <div>
                     <CardTitle>Ventas Diarias</CardTitle>
                     <CardDescription>
-                      {ventasDiarias?.periodo}
+                      {ventasDiarias[`dias${diasGrafico}` as keyof typeof ventasDiarias]?.periodo}
                     </CardDescription>
                   </div>
-                  <div className="flex gap-2">
-                    <Button 
-                      variant={diasGrafico === 7 ? 'default' : 'outline'} 
-                      size="sm"
-                      onClick={() => setDiasGrafico(7)}
-                    >
-                      7 días
-                    </Button>
-                    <Button 
-                      variant={diasGrafico === 30 ? 'default' : 'outline'} 
-                      size="sm"
-                      onClick={() => setDiasGrafico(30)}
-                    >
-                      30 días
-                    </Button>
-                    <Button 
-                      variant={diasGrafico === 90 ? 'default' : 'outline'} 
-                      size="sm"
-                      onClick={() => setDiasGrafico(90)}
-                    >
-                      90 días
-                    </Button>
-                  </div>
+                  <Tabs 
+                    value={diasGrafico.toString()} 
+                    onValueChange={(value) => setDiasGrafico(Number(value) as 7 | 30 | 90)}
+                  >
+                    <TabsList>
+                      <TabsTrigger value="7">7 días</TabsTrigger>
+                      <TabsTrigger value="30">30 días</TabsTrigger>
+                      <TabsTrigger value="90">90 días</TabsTrigger>
+                    </TabsList>
+                  </Tabs>
                 </div>
               </CardHeader>
               <CardContent>
                 <ResponsiveContainer width="100%" height={350}>
-                  <BarChart data={ventasDiarias?.datos || []}>
+                  <BarChart data={ventasDiarias[`dias${diasGrafico}` as keyof typeof ventasDiarias]?.datos || []}>
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis dataKey="fecha" />
                     <YAxis />
@@ -365,46 +389,141 @@ export default function DashboardPage() {
 
           {/* Tab Productos */}
           <TabsContent value="productos" className="space-y-4">
+            {/* Fila superior: Diagrama de torta y Top 5 */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-              {/* Productos más vendidos */}
+              {/* Diagrama de torta */}
               <Card>
                 <CardHeader>
-                  <CardTitle>Top 10 Productos</CardTitle>
-                  <CardDescription>Productos más vendidos</CardDescription>
+                  <CardTitle>Distribución de Ingresos</CardTitle>
+                  <CardDescription>Top 5 productos por ingresos totales</CardDescription>
                 </CardHeader>
-                <CardContent>
-                  <ResponsiveContainer width="100%" height={300}>
-                    <BarChart data={productosTop.slice(0, 5)} layout="vertical">
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis type="number" />
-                      <YAxis dataKey="producto__nombre" type="category" width={100} />
-                      <Tooltip 
-                        formatter={(value: number) => `Bs ${value.toLocaleString()}`}
-                      />
-                      <Bar dataKey="ingresos_totales" fill="#10b981" name="Ingresos" />
-                    </BarChart>
-                  </ResponsiveContainer>
+                <CardContent className="p-0">
+                  {productosTop.length > 0 ? (
+                    <>
+                      <div className="w-full h-[260px]">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <PieChart>
+                            <Pie
+                              data={productosTop.slice(0, 5).map((producto) => ({
+                                name: producto.producto__nombre.length > 20 
+                                  ? producto.producto__nombre.substring(0, 20) + '...' 
+                                  : producto.producto__nombre,
+                                value: producto.ingresos_totales,
+                                fullName: producto.producto__nombre
+                              }))}
+                              cx="50%"
+                              cy="50%"
+                              labelLine={true}
+                              label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(1)}%`}
+                              outerRadius={80}
+                              fill="#8884d8"
+                              dataKey="value"
+                            >
+                              {productosTop.slice(0, 5).map((entry, index) => (
+                                <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                              ))}
+                            </Pie>
+                            <Tooltip 
+                              formatter={(value: number) => `Bs ${value.toLocaleString()}`}
+                              contentStyle={{ backgroundColor: '#fff', border: '1px solid #ccc' }}
+                            />
+                          </PieChart>
+                        </ResponsiveContainer>
+                      </div>
+                      {/* Mini lista de porcentajes */}
+                      <div className="border-t p-4 space-y-2 bg-gray-50/50">
+                        {productosTop.slice(0, 5).map((producto, index) => {
+                          const totalIngresos = productosTop.slice(0, 5).reduce((sum, p) => sum + p.ingresos_totales, 0);
+                          const porcentaje = (producto.ingresos_totales / totalIngresos) * 100;
+                          return (
+                            <div key={producto.producto__id} className="flex items-center justify-between text-sm">
+                              <div className="flex items-center gap-2 flex-1 min-w-0">
+                                <div 
+                                  className="w-3 h-3 rounded-full shrink-0" 
+                                  style={{ backgroundColor: COLORS[index % COLORS.length] }}
+                                />
+                                <span className="text-muted-foreground truncate">{producto.producto__nombre}</span>
+                              </div>
+                              <span className="font-semibold text-gray-900 ml-2">{porcentaje.toFixed(1)}%</span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </>
+                  ) : (
+                    <div className="text-center py-8 text-muted-foreground">
+                      No hay datos de productos vendidos
+                    </div>
+                  )}
                 </CardContent>
               </Card>
 
-              {/* Productos con stock bajo */}
+              {/* Top 5 Productos */}
               <Card>
                 <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <AlertTriangle className="w-5 h-5 text-orange-600" />
-                    Stock Bajo
-                  </CardTitle>
-                  <CardDescription>
-                    Productos que necesitan reabastecimiento
-                  </CardDescription>
+                  <CardTitle>Top 5 Productos</CardTitle>
+                  <CardDescription>Productos más vendidos por cantidad e ingresos</CardDescription>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-3">
-                    {productosBajoStock.slice(0, 8).map((producto) => (
+                    {productosTop.slice(0, 5).map((producto, index) => (
                       <div 
-                        key={producto.id}
-                        className="flex items-center justify-between p-3 border rounded-lg hover:bg-gray-50"
+                        key={producto.producto__id}
+                        className="flex items-center gap-3 p-3 border rounded-lg hover:bg-gray-50 transition-colors"
                       >
+                        <div className="flex items-center justify-center w-8 h-8 rounded-full bg-blue-100 text-blue-700 font-bold text-sm shrink-0">
+                          {index + 1}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium text-sm truncate">{producto.producto__nombre}</p>
+                          <div className="flex items-center gap-2 mt-1">
+                            <Badge variant="outline" className="text-xs">
+                              {producto.producto__categoria__nombre}
+                            </Badge>
+                            <span className="text-xs text-blue-600 font-medium">
+                              {producto.total_vendido} unid.
+                            </span>
+                          </div>
+                        </div>
+                        <div className="text-right shrink-0">
+                          <div className="text-lg font-bold text-green-600">
+                            Bs {producto.ingresos_totales.toLocaleString()}
+                          </div>
+                          <div className="text-xs text-muted-foreground">
+                            {producto.total_vendido} vendidos
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                    {productosTop.length === 0 && (
+                      <div className="text-center py-8 text-muted-foreground">
+                        No hay datos de productos vendidos
+                      </div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Fila inferior: Stock bajo */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <AlertTriangle className="w-5 h-5 text-orange-600" />
+                  Stock Bajo
+                </CardTitle>
+                <CardDescription>
+                  Productos que necesitan reabastecimiento
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {productosBajoStock.slice(0, 8).map((producto) => (
+                    <div 
+                      key={producto.id}
+                      className="flex items-center justify-between p-3 border rounded-lg hover:bg-gray-50 transition-colors"
+                    >
+                      <div className="flex items-center gap-3 flex-1">
                         <div className="flex-1">
                           <p className="font-medium text-sm">{producto.nombre}</p>
                           <p className="text-xs text-muted-foreground">
@@ -413,16 +532,20 @@ export default function DashboardPage() {
                         </div>
                         <Badge 
                           variant={producto.stock <= 5 ? 'destructive' : 'secondary'}
-                          className="ml-2"
                         >
                           {producto.stock} unid.
                         </Badge>
                       </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
+                    </div>
+                  ))}
+                  {productosBajoStock.length === 0 && (
+                    <div className="text-center py-8 text-muted-foreground">
+                      No hay productos con stock bajo
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
           </TabsContent>
         </Tabs>
       </div>
