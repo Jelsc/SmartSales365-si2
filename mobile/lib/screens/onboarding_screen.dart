@@ -16,21 +16,24 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
   final List<OnboardingData> _pages = [
     OnboardingData(
-      title: 'Optimización Inteligente',
-      description: 'Nuestro sistema utiliza inteligencia artificial para optimizar rutas y mejorar la eficiencia del transporte interdepartamental en Bolivia.',
-      icon: Icons.route,
+      title: 'Compra con Inteligencia',
+      description:
+          'Descubre productos increíbles con recomendaciones personalizadas y ofertas exclusivas solo para ti.',
+      icon: Icons.shopping_bag_outlined,
       color: Colors.blue,
     ),
     OnboardingData(
       title: 'Seguimiento en Tiempo Real',
-      description: 'Rastrea tus viajes y encomiendas en tiempo real con información precisa sobre ubicación y tiempos estimados de llegada.',
-      icon: Icons.location_on,
-      color: Colors.green,
+      description:
+          'Rastrea tus pedidos en tiempo real desde el momento de la compra hasta la entrega en tu puerta.',
+      icon: Icons.local_shipping_outlined,
+      color: Colors.purple,
     ),
     OnboardingData(
-      title: 'Gestión Integral',
-      description: 'Centraliza la gestión de pasajeros, encomiendas y carga en una sola plataforma moderna y confiable.',
-      icon: Icons.dashboard,
+      title: 'Experiencia Premium',
+      description:
+          'Disfruta de una experiencia de compra única con pagos seguros y atención al cliente 24/7.',
+      icon: Icons.stars_outlined,
       color: Colors.orange,
     ),
   ];
@@ -165,7 +168,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                           child: OutlinedButton(
                             onPressed: _nextPage,
                             style: OutlinedButton.styleFrom(
-                              side: BorderSide(color: _pages[_currentPage].color, width: 2),
+                              side: BorderSide(
+                                color: _pages[_currentPage].color,
+                                width: 2,
+                              ),
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(12),
                               ),
@@ -191,11 +197,16 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                               child: OutlinedButton(
                                 onPressed: _goToLogin,
                                 style: OutlinedButton.styleFrom(
-                                  side: const BorderSide(color: Colors.blue, width: 2),
+                                  side: const BorderSide(
+                                    color: Colors.blue,
+                                    width: 2,
+                                  ),
                                   shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(12),
                                   ),
-                                  padding: const EdgeInsets.symmetric(vertical: 16),
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 16,
+                                  ),
                                 ),
                                 child: const Text(
                                   'Iniciar Sesión',
@@ -219,7 +230,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                                   shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(12),
                                   ),
-                                  padding: const EdgeInsets.symmetric(vertical: 16),
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 16,
+                                  ),
                                 ),
                                 child: const Text(
                                   'Crear Cuenta',
@@ -254,20 +267,13 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             decoration: BoxDecoration(
               color: data.color.withOpacity(0.1),
               shape: BoxShape.circle,
-              border: Border.all(
-                color: data.color.withOpacity(0.3),
-                width: 2,
-              ),
+              border: Border.all(color: data.color.withOpacity(0.3), width: 2),
             ),
-            child: Icon(
-              data.icon,
-              size: 60,
-              color: data.color,
-            ),
+            child: Icon(data.icon, size: 60, color: data.color),
           ),
-          
+
           const SizedBox(height: 40),
-          
+
           // Title
           Text(
             data.title,
@@ -278,9 +284,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             ),
             textAlign: TextAlign.center,
           ),
-          
+
           const SizedBox(height: 20),
-          
+
           // Description
           Text(
             data.description,

@@ -57,6 +57,9 @@ urlpatterns = [
     # Reportes: generación dinámica de reportes
     path("api/reportes/", include("reportes.urls")),
     
+    # Notificaciones: push notifications con Firebase
+    path("api/notifications/", include("notifications.urls")),
+    
     path("api/bitacora/", include("bitacora.urls")),
 
     # Auth social: endpoints para login social (navegador)

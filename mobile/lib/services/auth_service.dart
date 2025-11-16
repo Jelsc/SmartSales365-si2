@@ -1,9 +1,12 @@
 import 'dart:convert';
+import 'dart:async';
+import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:flutter/material.dart';
-import '../utils/ip_detection.dart';
+import '../config/api_config.dart';
+import 'notification_service.dart';
 
 // Configuración base de la API - Ahora con detección automática
 
@@ -58,8 +61,12 @@ class Rol {
       descripcion: json['descripcion'] ?? '',
       esAdministrativo: json['es_administrativo'] ?? false,
       permisos: List<String>.from(json['permisos'] ?? []),
-      fechaCreacion: DateTime.parse(json['fecha_creacion'] ?? DateTime.now().toIso8601String()),
-      fechaActualizacion: DateTime.parse(json['fecha_actualizacion'] ?? DateTime.now().toIso8601String()),
+      fechaCreacion: DateTime.parse(
+        json['fecha_creacion'] ?? DateTime.now().toIso8601String(),
+      ),
+      fechaActualizacion: DateTime.parse(
+        json['fecha_actualizacion'] ?? DateTime.now().toIso8601String(),
+      ),
     );
   }
 
@@ -92,7 +99,7 @@ class User {
   final DateTime dateJoined;
   final DateTime? lastLogin;
   final Rol? rol;
-  
+
   // Propiedades calculadas
   final bool esAdministrativo;
   final bool esCliente;
@@ -128,14 +135,16 @@ class User {
       telefono: json['telefono'],
       direccion: json['direccion'],
       ci: json['ci'],
-      fechaNacimiento: json['fecha_nacimiento'] != null 
-          ? DateTime.parse(json['fecha_nacimiento']) 
+      fechaNacimiento: json['fecha_nacimiento'] != null
+          ? DateTime.parse(json['fecha_nacimiento'])
           : null,
       isActive: json['is_active'] ?? false,
       isStaff: json['is_staff'] ?? false,
-      dateJoined: DateTime.parse(json['date_joined'] ?? DateTime.now().toIso8601String()),
-      lastLogin: json['last_login'] != null 
-          ? DateTime.parse(json['last_login']) 
+      dateJoined: DateTime.parse(
+        json['date_joined'] ?? DateTime.now().toIso8601String(),
+      ),
+      lastLogin: json['last_login'] != null
+          ? DateTime.parse(json['last_login'])
           : null,
       rol: json['rol'] != null ? Rol.fromJson(json['rol']) : null,
       esAdministrativo: json['es_administrativo'] ?? false,
@@ -173,11 +182,7 @@ class LoginCredentials {
   final String? email;
   final String password;
 
-  LoginCredentials({
-    this.username,
-    this.email,
-    required this.password,
-  });
+  LoginCredentials({this.username, this.email, required this.password});
 
   Map<String, dynamic> toJson() {
     return {
@@ -225,7 +230,8 @@ class ClienteRegisterData {
       'telefono': telefono,
       if (direccion != null) 'direccion': direccion,
       'ci': ci,
-      if (fechaNacimiento != null) 'fecha_nacimiento': fechaNacimiento!.toIso8601String().split('T')[0],
+      if (fechaNacimiento != null)
+        'fecha_nacimiento': fechaNacimiento!.toIso8601String().split('T')[0],
     };
   }
 }
@@ -356,34 +362,44 @@ class AuthService {
     String method = 'GET',
     Map<String, dynamic>? body,
     T Function(dynamic)? fromJson,
+    Duration? timeout,
   }) async {
-    final baseUrl = await IPDetection.getBaseUrl();
+    final baseUrl = ApiConfig.getBaseUrl();
     final url = Uri.parse('$baseUrl$endpoint');
     final headers = await _authHeaders;
+    final requestTimeout = timeout ?? const Duration(seconds: 15);
 
     try {
       http.Response response;
 
       switch (method.toUpperCase()) {
         case 'GET':
-          response = await http.get(url, headers: headers);
+          response = await http
+              .get(url, headers: headers)
+              .timeout(requestTimeout);
           break;
         case 'POST':
-          response = await http.post(
-            url,
-            headers: headers,
-            body: body != null ? jsonEncode(body) : null,
-          );
+          response = await http
+              .post(
+                url,
+                headers: headers,
+                body: body != null ? jsonEncode(body) : null,
+              )
+              .timeout(requestTimeout);
           break;
         case 'PUT':
-          response = await http.put(
-            url,
-            headers: headers,
-            body: body != null ? jsonEncode(body) : null,
-          );
+          response = await http
+              .put(
+                url,
+                headers: headers,
+                body: body != null ? jsonEncode(body) : null,
+              )
+              .timeout(requestTimeout);
           break;
         case 'DELETE':
-          response = await http.delete(url, headers: headers);
+          response = await http
+              .delete(url, headers: headers)
+              .timeout(requestTimeout);
           break;
         default:
           throw Exception('Método HTTP no soportado: $method');
@@ -465,8 +481,32 @@ class AuthService {
           message: responseData['message'],
         );
       }
+    } on TimeoutException catch (e) {
+      print('⏱️ Timeout en petición a $endpoint: $e');
+      return ApiResponse<T>(
+        success: false,
+        error:
+            'Tiempo de espera agotado. Verifica tu conexión a internet y que el servidor esté disponible en $baseUrl',
+      );
+    } on SocketException catch (e) {
+      print('🌐 Error de conexión a $endpoint: $e');
+      return ApiResponse<T>(
+        success: false,
+        error:
+            'No se pudo conectar al servidor. Verifica que el backend esté corriendo en $baseUrl',
+      );
+    } on HttpException catch (e) {
+      print('📡 Error HTTP en $endpoint: $e');
+      return ApiResponse<T>(
+        success: false,
+        error: 'Error de comunicación con el servidor: ${e.message}',
+      );
     } catch (e) {
-      return ApiResponse<T>(success: false, error: 'Error de conexión: $e');
+      print('❌ Error inesperado en $endpoint: $e');
+      return ApiResponse<T>(
+        success: false,
+        error: 'Error de conexión: ${e.toString()}',
+      );
     }
   }
 
@@ -476,34 +516,44 @@ class AuthService {
     String method = 'GET',
     Map<String, dynamic>? body,
     T Function(dynamic)? fromJson,
+    Duration? timeout,
   }) async {
-    final baseUrl = await IPDetection.getBaseUrl();
+    final baseUrl = ApiConfig.getBaseUrl();
     final url = Uri.parse('$baseUrl$endpoint');
     final headers = _defaultHeaders;
+    final requestTimeout = timeout ?? const Duration(seconds: 15);
 
     try {
       http.Response response;
 
       switch (method.toUpperCase()) {
         case 'GET':
-          response = await http.get(url, headers: headers);
+          response = await http
+              .get(url, headers: headers)
+              .timeout(requestTimeout);
           break;
         case 'POST':
-          response = await http.post(
-            url,
-            headers: headers,
-            body: body != null ? jsonEncode(body) : null,
-          );
+          response = await http
+              .post(
+                url,
+                headers: headers,
+                body: body != null ? jsonEncode(body) : null,
+              )
+              .timeout(requestTimeout);
           break;
         case 'PUT':
-          response = await http.put(
-            url,
-            headers: headers,
-            body: body != null ? jsonEncode(body) : null,
-          );
+          response = await http
+              .put(
+                url,
+                headers: headers,
+                body: body != null ? jsonEncode(body) : null,
+              )
+              .timeout(requestTimeout);
           break;
         case 'DELETE':
-          response = await http.delete(url, headers: headers);
+          response = await http
+              .delete(url, headers: headers)
+              .timeout(requestTimeout);
           break;
         default:
           throw Exception('Método HTTP no soportado: $method');
@@ -547,8 +597,32 @@ class AuthService {
           message: responseData['message'],
         );
       }
+    } on TimeoutException catch (e) {
+      print('⏱️ Timeout en petición a $endpoint: $e');
+      return ApiResponse<T>(
+        success: false,
+        error:
+            'Tiempo de espera agotado. Verifica tu conexión a internet y que el servidor esté disponible en $baseUrl',
+      );
+    } on SocketException catch (e) {
+      print('🌐 Error de conexión a $endpoint: $e');
+      return ApiResponse<T>(
+        success: false,
+        error:
+            'No se pudo conectar al servidor. Verifica que el backend esté corriendo en $baseUrl',
+      );
+    } on HttpException catch (e) {
+      print('📡 Error HTTP en $endpoint: $e');
+      return ApiResponse<T>(
+        success: false,
+        error: 'Error de comunicación con el servidor: ${e.message}',
+      );
     } catch (e) {
-      return ApiResponse<T>(success: false, error: 'Error de conexión: $e');
+      print('❌ Error inesperado en $endpoint: $e');
+      return ApiResponse<T>(
+        success: false,
+        error: 'Error de conexión: ${e.toString()}',
+      );
     }
   }
 
@@ -565,29 +639,47 @@ class AuthService {
 
       if (response.success && response.data != null) {
         final loginResponse = LoginResponse.fromJson(response.data!);
-        
+
         // Guardar tokens
         await saveToken(loginResponse.access);
         await saveRefreshToken(loginResponse.refresh);
 
-        return ApiResponse<LoginResponse>(
-            success: true,
-          data: loginResponse,
-            message: 'Inicio de sesión exitoso',
+        // Registrar token FCM en el backend después del login exitoso
+        try {
+          final notificationService = NotificationService();
+          final baseUrl = ApiConfig.getBaseUrl();
+          await notificationService.sendTokenToBackend(
+            baseUrl,
+            loginResponse.access,
           );
-        } else {
+        } catch (e) {
+          // No fallar el login si falla el registro del token
+          print('⚠️ Error registrando token FCM: $e');
+        }
+
+        return ApiResponse<LoginResponse>(
+          success: true,
+          data: loginResponse,
+          message: 'Inicio de sesión exitoso',
+        );
+      } else {
         return ApiResponse<LoginResponse>(
           success: false,
           error: response.error ?? 'Error en el login',
         );
       }
     } catch (e) {
-      return ApiResponse<LoginResponse>(success: false, error: 'Error en el login: $e');
+      return ApiResponse<LoginResponse>(
+        success: false,
+        error: 'Error en el login: $e',
+      );
     }
   }
 
   // Registro de clientes (público con verificación)
-  Future<ApiResponse<Map<String, dynamic>>> registerCliente(ClienteRegisterData userData) async {
+  Future<ApiResponse<Map<String, dynamic>>> registerCliente(
+    ClienteRegisterData userData,
+  ) async {
     try {
       final response = await _apiRequestWithoutAuth<Map<String, dynamic>>(
         '/api/register/',
@@ -634,7 +726,7 @@ class AuthService {
 
       if (response.success && response.data != null) {
         final loginResponse = LoginResponse.fromJson(response.data!);
-        
+
         // Guardar tokens
         await saveToken(loginResponse.access);
         await saveRefreshToken(loginResponse.refresh);
@@ -646,12 +738,15 @@ class AuthService {
         );
       } else {
         return ApiResponse<LoginResponse>(
-        success: false,
+          success: false,
           error: response.error ?? 'Error en el login con Google',
         );
       }
     } catch (e) {
-      return ApiResponse<LoginResponse>(success: false, error: 'Error en el login con Google: $e');
+      return ApiResponse<LoginResponse>(
+        success: false,
+        error: 'Error en el login con Google: $e',
+      );
     }
   }
 
@@ -688,7 +783,9 @@ class AuthService {
   }
 
   // Reenviar código de verificación
-  Future<ApiResponse<Map<String, dynamic>>> resendVerificationCode(int userId) async {
+  Future<ApiResponse<Map<String, dynamic>>> resendVerificationCode(
+    int userId,
+  ) async {
     try {
       return await _apiRequestWithoutAuth<Map<String, dynamic>>(
         '/api/resend-code/',
@@ -753,12 +850,33 @@ class AuthService {
     try {
       final refreshToken = await getRefreshToken();
       if (refreshToken != null) {
-        await _apiRequest('/api/auth/logout/', method: 'POST', body: {'refresh': refreshToken});
+        await _apiRequest(
+          '/api/auth/logout/',
+          method: 'POST',
+          body: {'refresh': refreshToken},
+        );
       }
     } catch (e) {
       // Ignorar errores en logout
     } finally {
       await clearTokens();
+      // Limpiar también las preferencias de rol para evitar bugs de persistencia
+      await _clearUserRolePreferences();
+    }
+  }
+
+  // Limpiar preferencias de rol del usuario
+  Future<void> _clearUserRolePreferences() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove('is_admin');
+      await prefs.remove('can_access_admin');
+      await prefs.remove('is_client');
+      await prefs.remove('user_role_name');
+      await prefs.remove('user_role_id');
+      print('✅ Preferencias de rol limpiadas en logout');
+    } catch (e) {
+      print('❌ Error al limpiar preferencias de rol en logout: $e');
     }
   }
 
@@ -855,51 +973,21 @@ class AuthService {
     );
   }
 
-  // ===== MÉTODOS DE DETECCIÓN DE IP =====
-
-  // Obtener información del entorno actual
-  Future<Map<String, dynamic>> getEnvironmentInfo() async {
-    return await IPDetection.getEnvironmentInfo();
-  }
-
-  // Forzar nueva detección de IP (útil para cambios de red)
-  Future<String> forceIPDetection() async {
-    return await IPDetection.forceDetection();
-  }
-
-  // Forzar localhost (útil para desarrollo)
-  Future<String> forceLocalhost() async {
-    return await IPDetection.forceLocalhost();
-  }
-
   // Verificar conectividad con el backend
   Future<bool> checkBackendConnection() async {
     try {
-      final baseUrl = await IPDetection.getBaseUrl();
-      final response = await http.get(
-        Uri.parse('$baseUrl/api/auth/login/'),
-        headers: {'Accept': 'application/json'},
-      ).timeout(const Duration(seconds: 5));
-      
+      final baseUrl = ApiConfig.getBaseUrl();
+      final response = await http
+          .get(
+            Uri.parse('$baseUrl/api/auth/login/'),
+            headers: {'Accept': 'application/json'},
+          )
+          .timeout(const Duration(seconds: 5));
+
       // Cualquier respuesta del servidor indica que está disponible
       return response.statusCode >= 200 && response.statusCode < 500;
     } catch (e) {
       return false;
     }
-  }
-
-  // Mostrar información del entorno en un toast
-  Future<void> showEnvironmentInfo() async {
-    final envInfo = await getEnvironmentInfo();
-    final isConnected = await checkBackendConnection();
-    
-    final message = '''
-Entorno: ${envInfo['isCloud'] ? 'Nube' : 'Local'}
-URL: ${envInfo['baseUrl']}
-Plataforma: ${envInfo['platform']}
-Conectado: ${isConnected ? 'Sí' : 'No'}
-''';
-    
-    showSuccessToast(message);
   }
 }
