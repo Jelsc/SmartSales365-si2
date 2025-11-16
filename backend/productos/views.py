@@ -5,14 +5,15 @@ from rest_framework.permissions import IsAuthenticated, AllowAny
 from django_filters.rest_framework import DjangoFilterBackend
 from django.db.models import Q
 from bitacora.utils import registrar_bitacora
-from .models import Categoria, Producto, ProductoImagen, ProductoVariante
+from .models import Categoria, Producto, ProductoImagen, ProductoVariante, Favorito
 from .serializers import (
     CategoriaSerializer,
     ProductoListSerializer,
     ProductoDetailSerializer,
     ProductoCreateUpdateSerializer,
     ProductoImagenSerializer,
-    ProductoVarianteSerializer
+    ProductoVarianteSerializer,
+    FavoritoSerializer
 )
 from .filters import ProductoFilter
 from .semantic_search import buscar_productos_semantica, interpretar_consulta
@@ -465,3 +466,148 @@ class ProductoVarianteViewSet(viewsets.ModelViewSet):
         if producto_id:
             queryset = queryset.filter(producto_id=producto_id)
         return queryset
+
+
+class FavoritoViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet para gestionar favoritos de productos
+    """
+    serializer_class = FavoritoSerializer
+    permission_classes = [IsAuthenticated]
+    
+    def get_queryset(self):
+        """Solo mostrar favoritos del usuario actual"""
+        return Favorito.objects.filter(usuario=self.request.user).select_related('producto', 'usuario')
+    
+    def get_serializer_context(self):
+        """Asegurar que el contexto siempre incluya el request"""
+        context = super().get_serializer_context()
+        context['request'] = self.request
+        return context
+    
+    def create(self, request, *args, **kwargs):
+        """Agregar producto a favoritos"""
+        producto_id = request.data.get('producto_id')
+        
+        if not producto_id:
+            return Response(
+                {'error': 'producto_id es requerido'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Verificar si el producto existe
+        try:
+            producto = Producto.objects.get(pk=producto_id)
+        except Producto.DoesNotExist:
+            return Response(
+                {'error': 'Producto no encontrado'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        # Verificar si ya está en favoritos
+        favorito, created = Favorito.objects.get_or_create(
+            usuario=request.user,
+            producto=producto
+        )
+        
+        if created:
+            serializer = self.get_serializer(favorito, context={'request': request})
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        else:
+            return Response(
+                {'error': 'El producto ya está en favoritos'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+    
+    @action(detail=False, methods=['get'])
+    def mis_favoritos(self, request):
+        """Listar todos los favoritos del usuario actual"""
+        favoritos = self.get_queryset()
+        serializer = self.get_serializer(favoritos, many=True, context={'request': request})
+        return Response(serializer.data)
+    
+    @action(detail=False, methods=['post'])
+    def toggle(self, request):
+        """Agregar o eliminar producto de favoritos"""
+        producto_id = request.data.get('producto_id')
+        
+        if not producto_id:
+            return Response(
+                {'error': 'producto_id es requerido'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        try:
+            producto = Producto.objects.get(pk=producto_id)
+        except Producto.DoesNotExist:
+            return Response(
+                {'error': 'Producto no encontrado'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        try:
+            favorito = Favorito.objects.get(
+                usuario=request.user,
+                producto=producto
+            )
+            # Si ya existe, eliminarlo
+            favorito.delete()
+            return Response({'agregado': False, 'mensaje': 'Producto eliminado de favoritos'})
+        except Favorito.DoesNotExist:
+            # Si no existe, crearlo
+            favorito = Favorito.objects.create(
+                usuario=request.user,
+                producto=producto
+            )
+            try:
+                serializer = self.get_serializer(favorito)
+                return Response({'agregado': True, 'favorito': serializer.data})
+            except Exception as e:
+                # Si hay error en la serialización, al menos devolver que se agregó
+                import traceback
+                print(f"Error al serializar favorito: {e}")
+                print(traceback.format_exc())
+                return Response({
+                    'agregado': True, 
+                    'favorito': {
+                        'id': favorito.id,
+                        'producto_id': producto.id,
+                        'creado': favorito.creado.isoformat()
+                    }
+                })
+    
+    @action(detail=False, methods=['post'])
+    def eliminar(self, request):
+        """Eliminar producto de favoritos por producto_id"""
+        producto_id = request.data.get('producto_id')
+        
+        if not producto_id:
+            return Response(
+                {'error': 'producto_id es requerido'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        try:
+            favorito = Favorito.objects.get(
+                usuario=request.user,
+                producto_id=producto_id
+            )
+            favorito.delete()
+            return Response({'mensaje': 'Producto eliminado de favoritos'})
+        except Favorito.DoesNotExist:
+            return Response(
+                {'error': 'El producto no está en favoritos'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+    
+    @action(detail=True, methods=['get'])
+    def verificar(self, request, pk=None):
+        """Verificar si un producto está en favoritos"""
+        try:
+            favorito = Favorito.objects.get(
+                usuario=request.user,
+                producto_id=pk
+            )
+            return Response({'es_favorito': True, 'fecha': favorito.creado})
+        except Favorito.DoesNotExist:
+            return Response({'es_favorito': False})

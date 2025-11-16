@@ -133,6 +133,8 @@ INSTALLED_APPS = [
     "ventas",  # 🆕 Módulo de pedidos y ventas
     "pagos",  # 🆕 Módulo de pagos con Stripe
     "analytics",  # 🆕 Módulo de analytics y ML
+    "reportes",  # 🆕 Módulo de reportes dinámicos
+    "notifications",  # 🆕 Módulo de notificaciones push
     # Requisito para allauth
     "django.contrib.sites",
     # Allauth (core + cuentas + social)

@@ -50,6 +50,12 @@ urlpatterns = [
     
     # Analytics: dashboard inteligente con ML
     path("api/analytics/", include("analytics.urls")),
+
+    # Notificaciones push
+    path("api/notifications/", include("notifications.urls")),
+    
+    # Reportes: generación dinámica de reportes
+    path("api/reportes/", include("reportes.urls")),
     
     # Notificaciones: push notifications con Firebase
     path("api/notifications/", include("notifications.urls")),

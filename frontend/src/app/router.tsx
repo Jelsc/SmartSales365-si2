@@ -23,9 +23,11 @@ import OfertasPage from "@/pages/client/productos/ofertas.page";
 import CarritoPage from "@/pages/client/carrito/carrito.page";
 import CheckoutPage from "@/pages/client/checkout/checkout.page";
 import MisPedidosPage from "@/pages/client/mis-pedidos/mis-pedidos.page";
+import FavoritosPage from "@/pages/client/favoritos/favoritos.page";
 import PedidoDetallePage from "@/pages/client/mis-pedidos/pedido-detalle.page";
 import BuscarPage from "@/pages/client/buscar/buscar.page";
 import DashboardPage from "@/pages/admin/dashboard/dashboard.page";
+import ReportesPage from "@/pages/admin/reportes/reportes.page";
 
 export default function AppRouter() {
   return (
@@ -72,6 +74,14 @@ export default function AppRouter() {
               </ProtectedRoute>
             }
           />
+          <Route
+            path="favoritos"
+            element={
+              <ProtectedRoute>
+                <FavoritosPage />
+              </ProtectedRoute>
+            }
+          />
         </Route>
         
         {/* Rutas de autenticación sin layout */}
@@ -81,10 +91,10 @@ export default function AppRouter() {
         <Route path="/profile/edit" element={<AccountSettingsPage />} />
         
         {/* Rutas de administración */}
-        <Route path="/admin" element={<AdminLoginPage />} />
+        <Route path="/panel" element={<AdminLoginPage />} />
         {/* Rutas protegidas de administración */}
         <Route
-          path="/admin/roles"
+          path="/panel/roles"
           element={
             <ProtectedRoute requireAdmin={true}>
               <RolesPage />
@@ -92,7 +102,7 @@ export default function AppRouter() {
           }
         />
         <Route
-          path="/admin/permisos"
+          path="/panel/permisos"
           element={
             <ProtectedRoute requireAdmin={true}>
               <PermisosPage />
@@ -100,7 +110,7 @@ export default function AppRouter() {
           }
         />
         <Route
-          path="/admin/bitacora"
+          path="/panel/bitacora"
           element={
             <ProtectedRoute requireAdmin={true}>
               <BitacoraPage />
@@ -108,7 +118,7 @@ export default function AppRouter() {
           }
         />
         <Route
-          path="/admin/home"
+          path="/panel/home"
           element={
             <ProtectedRoute requireAdmin={true}>
               <AdminPage />
@@ -116,17 +126,25 @@ export default function AppRouter() {
           }
         />
         <Route
-          path="/admin/dashboard"
+          path="/panel/dashboard"
           element={
             <ProtectedRoute requireAdmin={true}>
               <DashboardPage />
             </ProtectedRoute>
           }
         />
+        <Route
+          path="/panel/reportes"
+          element={
+            <ProtectedRoute requireAdmin={true}>
+              <ReportesPage />
+            </ProtectedRoute>
+          }
+        />
 
         {/* Otras rutas de admin protegidas */}
         <Route
-          path="/admin/flotas"
+          path="/panel/flotas"
           element={
             <ProtectedRoute requireAdmin={true}>
               <div>Flotas (por implementar)</div>
@@ -134,7 +152,7 @@ export default function AppRouter() {
           }
         />
         <Route
-          path="/admin/conductores"
+          path="/panel/conductores"
           element={
             <ProtectedRoute requireAdmin={true}>
               <ConductoresPage />
@@ -142,7 +160,7 @@ export default function AppRouter() {
           }
         />
         <Route
-          path="/admin/personal"
+          path="/panel/personal"
           element={
             <ProtectedRoute requireAdmin={true}>
               <PersonalPage />
@@ -150,7 +168,7 @@ export default function AppRouter() {
           }
         />
         <Route
-          path="/admin/usuarios"
+          path="/panel/usuarios"
           element={
             <ProtectedRoute requireAdmin={true}>
               <UsuariosPage />
@@ -158,7 +176,7 @@ export default function AppRouter() {
           }
         />
         <Route
-          path="/admin/mantenimiento"
+          path="/panel/mantenimiento"
           element={
             <ProtectedRoute requireAdmin={true}>
               <div>Mantenimiento (por implementar)</div>
@@ -166,7 +184,7 @@ export default function AppRouter() {
           }
         />
         <Route
-          path="/admin/rutas"
+          path="/panel/rutas"
           element={
             <ProtectedRoute requireAdmin={true}>
               <div>Rutas (por implementar)</div>
@@ -174,7 +192,7 @@ export default function AppRouter() {
           }
         />
         <Route
-          path="/admin/ventas"
+          path="/panel/ventas"
           element={
             <ProtectedRoute requireAdmin={true}>
               <VentasPage />
@@ -182,7 +200,7 @@ export default function AppRouter() {
           }
         />
         <Route
-          path="/admin/productos"
+          path="/panel/productos"
           element={
             <ProtectedRoute requireAdmin={true}>
               <ProductosAdminPage />
@@ -190,7 +208,7 @@ export default function AppRouter() {
           }
         />
         <Route
-          path="/admin/categorias"
+          path="/panel/categorias"
           element={
             <ProtectedRoute requireAdmin={true}>
               <CategoriasAdminPage />
@@ -198,7 +216,7 @@ export default function AppRouter() {
           }
         />
         <Route
-          path="/admin/pedidos"
+          path="/panel/pedidos"
           element={
             <ProtectedRoute requireAdmin={true}>
               <VentasPage />

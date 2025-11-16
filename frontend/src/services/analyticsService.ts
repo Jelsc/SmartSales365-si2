@@ -43,8 +43,9 @@ export interface PrediccionMes {
 export interface ProductoTop {
   producto__id: number;
   producto__nombre: string;
+  producto__categoria__nombre: string;
   producto__imagen: string | null;
-  total_vendido: number;
+  total_vendido: number; // Cantidad de unidades vendidas
   ingresos_totales: number;
 }
 

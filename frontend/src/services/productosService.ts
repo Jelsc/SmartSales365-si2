@@ -112,8 +112,9 @@ export const productosService = {
     };
   },
 
-  // Obtener un producto por ID (incluye imágenes y variantes)
-  async getById(id: number): Promise<Producto> {
+  // Obtener un producto por ID o slug (incluye imágenes y variantes)
+  // El backend acepta tanto ID numérico como slug
+  async getById(id: number | string): Promise<Producto> {
     const { data } = await apiRequest<any>(`/api/productos/${id}/`);
     if (!data) throw new Error('No se pudo obtener el producto');
     return fromDTO(data);

@@ -23,6 +23,7 @@ import {
   Package,
   ShoppingCart,
   Tag,
+  FileText,
   LayoutGrid,
 } from "lucide-react";
 
@@ -52,8 +53,8 @@ export default function Sidebar({ collapsed, setCollapsed }: SidebarProps) {
     if (!route) return false;
 
     // Caso especial para dashboard
-    if (route === "/admin/dashboard") {
-      return currentPath === "/admin/dashboard" || currentPath === "/admin";
+    if (route === "/panel/dashboard") {
+      return currentPath === "/panel/dashboard" || currentPath === "/admin";
     }
     // Para otras rutas, verificar si la ruta actual comienza con la ruta del módulo
     return currentPath.startsWith(route);
@@ -91,13 +92,19 @@ export default function Sidebar({ collapsed, setCollapsed }: SidebarProps) {
       id: "Panel",
       name: "Panel",
       icon: Home,
-      route: "/admin/home",
+      route: "/panel/home",
     },
     {
       id: "dashboard",
       name: "Dashboard Analytics",
       icon: BarChart3,
-      route: "/admin/dashboard",
+      route: "/panel/dashboard",
+    },
+    {
+      id: "reportes",
+      name: "Reportes Inteligentes",
+      icon: FileText,
+      route: "/panel/reportes",
     },
     {
       id: "usuarios-sistema",
@@ -108,14 +115,14 @@ export default function Sidebar({ collapsed, setCollapsed }: SidebarProps) {
           id: "permisos",
           name: "Permisos",
           icon: ShieldCheck,
-          route: "/admin/permisos",
+          route: "/panel/permisos",
         },
-        { id: "roles", name: "Roles", icon: Users, route: "/admin/roles" },
+        { id: "roles", name: "Roles", icon: Users, route: "/panel/roles" },
         {
           id: "usuarios",
           name: "Usuarios",
           icon: Users,
-          route: "/admin/usuarios",
+          route: "/panel/usuarios",
         },
       ],
     },
@@ -128,13 +135,13 @@ export default function Sidebar({ collapsed, setCollapsed }: SidebarProps) {
           id: "personal",
           name: "Personal",
           icon: Users,
-          route: "/admin/personal",
+          route: "/panel/personal",
         },
         {
           id: "conductores",
           name: "Conductores",
           icon: Truck,
-          route: "/admin/conductores",
+          route: "/panel/conductores",
         },
       ],
     },
@@ -147,19 +154,19 @@ export default function Sidebar({ collapsed, setCollapsed }: SidebarProps) {
           id: "productos",
           name: "Productos",
           icon: Package,
-          route: "/admin/productos",
+          route: "/panel/productos",
         },
         {
           id: "categorias",
           name: "Categorías",
           icon: LayoutGrid,
-          route: "/admin/categorias",
+          route: "/panel/categorias",
         },
         {
           id: "ventas",
           name: "Ventas",
           icon: ShoppingCart,
-          route: "/admin/ventas",
+          route: "/panel/ventas",
         },
       ],
     },
@@ -167,13 +174,13 @@ export default function Sidebar({ collapsed, setCollapsed }: SidebarProps) {
       id: "notificaciones",
       name: "Notificaciones",
       icon: Bell,
-      route: "/admin/notificaciones",
+      route: "/panel/notificaciones",
     },
     {
       id: "bitacora",
       name: "Bitácora",
       icon: BookOpen,
-      route: "/admin/bitacora",
+      route: "/panel/bitacora",
     },
   ];
 
@@ -195,7 +202,7 @@ export default function Sidebar({ collapsed, setCollapsed }: SidebarProps) {
         >
           {!collapsed && (
             <Link
-              to="/admin/home"
+              to="/panel/home"
               className="flex items-center gap-2 hover:opacity-80 transition-opacity"
             >
               <SmartSalesIcon className="w-6 h-6" />

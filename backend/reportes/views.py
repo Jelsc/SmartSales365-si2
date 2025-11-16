@@ -1,183 +1,196 @@
 from rest_framework import status
-from rest_framework.views import APIView
-from rest_framework.response import Response
+from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
-from django.http import FileResponse
-from django.core.files.base import ContentFile
+from rest_framework.response import Response
+from django.http import HttpResponse
+from .prompt_parser import interpretar_prompt, detectar_multiples_reportes
+from .report_generator import ReporteGenerator
+from .exporters import PDFExporter, ExcelExporter
 
-from .serializers import GenerarReporteSerializer, ReporteGeneradoSerializer
-from .models import ReporteGenerado
-from .services import ParserService, QueryBuilder, GeneradorArchivos
 
-
-class GenerarReporteView(APIView):
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def generar_reporte(request):
     """
-    API endpoint para generar reportes dinámicos mediante comandos de voz/texto.
-    
     POST /api/reportes/generar/
-    Body: {
+    
+    Body:
+    {
         "prompt": "Quiero un reporte de ventas del mes de septiembre, agrupado por producto, en PDF",
-        "modo": "voz"  // o "texto"
+        "formato": "pdf"  // opcional, se puede detectar del prompt
     }
+    
+    Returns:
+        - Si formato es 'pantalla': JSON con los datos (puede ser múltiple)
+        - Si formato es 'pdf' o 'excel': Archivo para descarga
     """
-    permission_classes = [IsAuthenticated]
-
-    def post(self, request):
-        """Genera un reporte basado en el prompt del usuario"""
-        serializer = GenerarReporteSerializer(data=request.data)
+    try:
+        prompt = request.data.get('prompt', '')
+        formato_forzado = request.data.get('formato')
         
-        if not serializer.is_valid():
+        if not prompt:
             return Response(
-                {'error': 'Datos inválidos', 'detalles': serializer.errors},
+                {'error': 'Debe proporcionar un prompt'},
                 status=status.HTTP_400_BAD_REQUEST
             )
         
-        prompt = serializer.validated_data['prompt']
-        modo = serializer.validated_data.get('modo', 'texto')
+        # DEBUG: Log para ver qué estamos recibiendo
+        print(f"\n{'='*60}")
+        print(f"🔍 PROMPT RECIBIDO: {prompt}")
+        print(f"📄 FORMATO FORZADO: {formato_forzado}")
         
-        try:
-            # FASE 1: Parsear el prompt
-            parser = ParserService()
-            parametros = parser.parsear(prompt)
+        # 1. Detectar si hay múltiples reportes en el prompt
+        prompts_separados = detectar_multiples_reportes(prompt)
+        print(f"📊 PROMPTS SEPARADOS: {len(prompts_separados)} reportes detectados")
+        for i, p in enumerate(prompts_separados, 1):
+            print(f"   Reporte {i}: {p}")
+        
+        # 2. Generar todos los reportes solicitados
+        reportes_generados = []
+        for sub_prompt in prompts_separados:
+            # Interpretar cada sub-prompt
+            parametros = interpretar_prompt(sub_prompt)
             
-            # FASE 2: Construir query
-            query_builder = QueryBuilder()
-            tipo = parametros['tipo']
+            # Forzar formato si se proporcionó
+            if formato_forzado:
+                parametros['formato'] = formato_forzado
             
-            if tipo == 'ventas':
-                datos = query_builder.construir_query_ventas(parametros)
-            elif tipo == 'productos':
-                datos = query_builder.construir_query_productos(parametros)
-            elif tipo == 'clientes':
-                datos = query_builder.construir_query_clientes(parametros)
-            elif tipo == 'ingresos':
-                datos_dict = query_builder.construir_query_ingresos(parametros)
-                datos = [datos_dict]  # Convertir a lista
-            else:
-                return Response(
-                    {'error': f'Tipo de reporte no soportado: {tipo}'},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
-            
-            # FASE 3: Generar archivo
-            formato = parametros['formato']
-            generador = GeneradorArchivos()
-            
-            # Determinar columnas
-            columnas = generador.determinar_columnas(
-                tipo,
-                parametros['agrupacion']
-            )
-            
-            # Crear título y subtítulo
-            titulo = f"Reporte de {tipo.capitalize()}"
-            periodo_desc = parametros['periodo'].get('descripcion', 'Período no especificado')
-            agrupacion_texto = parametros['agrupacion']
-            if agrupacion_texto != 'ninguno':
-                subtitulo = f"{periodo_desc} - Agrupado por {agrupacion_texto}"
-            else:
-                subtitulo = periodo_desc
-            
-            # Generar archivo según formato
-            if formato == 'pdf':
-                archivo_buffer = generador.generar_pdf(datos, titulo, subtitulo, columnas)
-                content_type = 'application/pdf'
-                extension = 'pdf'
-            elif formato == 'excel':
-                archivo_buffer = generador.generar_excel(datos, titulo, subtitulo, columnas)
-                content_type = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-                extension = 'xlsx'
-            elif formato == 'json':
-                # Para JSON, devolver directamente
-                reporte = ReporteGenerado.objects.create(
-                    usuario=request.user,
-                    prompt_original=prompt,
-                    tipo=tipo,
-                    periodo_inicio=parametros['periodo'].get('inicio'),
-                    periodo_fin=parametros['periodo'].get('fin'),
-                    agrupacion=parametros['agrupacion'],
-                    formato='json',
-                    datos_json=datos
-                )
-                
+            # Generar datos del reporte
+            generator = ReporteGenerator()
+            datos_reporte = generator.generar_datos(parametros)
+            reportes_generados.append(datos_reporte)
+        
+        # 3. Determinar formato final
+        if formato_forzado:
+            formato = formato_forzado
+        else:
+            # Usar el formato del primer reporte
+            formato = reportes_generados[0]['parametros'].get('formato', 'pantalla')
+        
+        # 4. Si es pantalla y hay múltiples reportes
+        if formato == 'pantalla':
+            if len(reportes_generados) > 1:
                 return Response({
-                    'mensaje': 'Reporte generado exitosamente',
-                    'reporte_id': reporte.id,
-                    'datos': datos,
-                    'parametros': {
-                        'tipo': tipo,
-                        'periodo': periodo_desc,
-                        'agrupacion': parametros['agrupacion'],
-                        'formato': 'json'
-                    }
-                }, status=status.HTTP_201_CREATED)
+                    'success': True,
+                    'reportes': reportes_generados,
+                    'cantidad_reportes': len(reportes_generados)
+                })
             else:
-                return Response(
-                    {'error': f'Formato no soportado: {formato}'},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
-            
-            # Guardar archivo en el modelo
-            nombre_archivo = f"reporte_{tipo}_{request.user.id}_{parametros['periodo'].get('inicio', 'sin_fecha')}.{extension}"
-            
-            reporte = ReporteGenerado.objects.create(
-                usuario=request.user,
-                prompt_original=prompt,
-                tipo=tipo,
-                periodo_inicio=parametros['periodo'].get('inicio'),
-                periodo_fin=parametros['periodo'].get('fin'),
-                agrupacion=parametros['agrupacion'],
-                formato=formato,
-                datos_json=datos
-            )
-            
-            # Guardar archivo
-            reporte.archivo.save(
-                nombre_archivo,
-                ContentFile(archivo_buffer.getvalue())
-            )
-            
-            # Devolver archivo como respuesta
-            archivo_buffer.seek(0)
-            response = FileResponse(
-                archivo_buffer,
-                content_type=content_type,
-                as_attachment=True,
-                filename=nombre_archivo
-            )
-            
-            # Agregar header con ID del reporte
-            response['X-Reporte-ID'] = str(reporte.id)
-            
-            return response
-            
-        except Exception as e:
-            return Response(
-                {
-                    'error': 'Error al generar reporte',
-                    'detalle': str(e)
-                },
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
-
-
-class HistorialReportesView(APIView):
-    """
-    API endpoint para ver historial de reportes generados.
-    
-    GET /api/reportes/historial/
-    """
-    permission_classes = [IsAuthenticated]
-
-    def get(self, request):
-        """Devuelve el historial de reportes del usuario"""
-        reportes = ReporteGenerado.objects.filter(
-            usuario=request.user
-        ).order_by('-created_at')[:50]  # Últimos 50 reportes
+                # Un solo reporte
+                return Response({
+                    'success': True,
+                    'parametros_interpretados': reportes_generados[0]['parametros'],
+                    'reporte': reportes_generados[0]
+                })
         
-        serializer = ReporteGeneradoSerializer(reportes, many=True)
+        # 5. Si es PDF o Excel (uno o múltiples reportes)
+        if formato == 'pdf':
+            from datetime import datetime
+            # Generar PDF con múltiples reportes
+            print(f"📄 GENERANDO PDF con {len(reportes_generados)} reporte(s)")
+            exporter = PDFExporter()
+            if len(reportes_generados) > 1:
+                print(f"   ✅ Usando generar_multiple() para {len(reportes_generados)} reportes")
+                buffer = exporter.generar_multiple(reportes_generados)
+                filename = f"reportes_combinados_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
+            else:
+                print(f"   ⚠️ Usando generar() para 1 reporte")
+                buffer = exporter.generar(reportes_generados[0])
+                titulo = reportes_generados[0].get('titulo', 'reporte').replace(' ', '_')
+                filename = f"{titulo}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
+            print(f"📥 Archivo generado: {filename}")
+            print(f"{'='*60}\n")
+            
+            response = HttpResponse(buffer.getvalue(), content_type='application/pdf')
+            response['Content-Disposition'] = f'attachment; filename="{filename}"'
+            return response
+        
+        elif formato == 'excel':
+            from datetime import datetime
+            # Generar Excel con múltiples reportes
+            exporter = ExcelExporter()
+            if len(reportes_generados) > 1:
+                buffer = exporter.generar_multiple(reportes_generados)
+                filename = f"reportes_combinados_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+            else:
+                buffer = exporter.generar(reportes_generados[0])
+                titulo = reportes_generados[0].get('titulo', 'reporte').replace(' ', '_')
+                filename = f"{titulo}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+            
+            response = HttpResponse(
+                buffer.getvalue(),
+                content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+            )
+            response['Content-Disposition'] = f'attachment; filename="{filename}"'
+            return response
+    
+    except Exception as e:
+        return Response(
+            {
+                'error': str(e),
+                'tipo': type(e).__name__
+            },
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def interpretar_comando(request):
+    """
+    POST /api/reportes/interpretar/
+    
+    Endpoint auxiliar para solo interpretar el prompt sin generar el reporte.
+    Útil para mostrar una vista previa de cómo se interpretó el comando.
+    
+    Body:
+    {
+        "prompt": "Quiero un reporte de ventas..."
+    }
+    
+    Returns:
+    {
+        "parametros": {...},
+        "interpretacion": "..."
+    }
+    """
+    try:
+        prompt = request.data.get('prompt', '')
+        
+        if not prompt:
+            return Response(
+                {'error': 'Debe proporcionar un prompt'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        parametros = interpretar_prompt(prompt)
+        
+        # Generar descripción legible de la interpretación
+        interpretacion_partes = []
+        interpretacion_partes.append(f"Tipo de reporte: {parametros['tipo'].upper()}")
+        interpretacion_partes.append(f"Formato de salida: {parametros['formato'].upper()}")
+        
+        if parametros.get('fecha_inicio') and parametros.get('fecha_fin'):
+            interpretacion_partes.append(
+                f"Periodo: del {parametros['fecha_inicio'].strftime('%d/%m/%Y')} "
+                f"al {parametros['fecha_fin'].strftime('%d/%m/%Y')}"
+            )
+        
+        if parametros.get('agrupacion'):
+            interpretacion_partes.append(f"Agrupado por: {', '.join(parametros['agrupacion'])}")
+        
+        if parametros.get('campos'):
+            interpretacion_partes.append(f"Campos solicitados: {', '.join(parametros['campos'])}")
         
         return Response({
-            'reportes': serializer.data,
-            'total': reportes.count()
-        }, status=status.HTTP_200_OK)
+            'success': True,
+            'parametros': parametros,
+            'interpretacion': interpretacion_partes,
+            'prompt_original': prompt
+        })
+    
+    except Exception as e:
+        return Response(
+            {'error': str(e)},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )

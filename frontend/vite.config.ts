@@ -128,5 +128,11 @@ export default defineConfig({
    server: {
     host: true,
     watch: { usePolling: true, interval: 100 },
+    allowedHosts: [
+      'localhost',
+      '127.0.0.1',
+      'smartsalesexamen.duckdns.org',
+      '.duckdns.org', // Permite cualquier subdominio de duckdns.org
+    ],
   },
 })

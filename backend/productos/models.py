@@ -1,6 +1,7 @@
 from django.db import models
 from django.utils.text import slugify
 from django.core.validators import MinValueValidator
+from django.conf import settings
 from decimal import Decimal
 
 
@@ -271,3 +272,33 @@ class ProductoVariante(models.Model):
     
     def __str__(self):
         return f"{self.producto.nombre} - {self.nombre}"
+
+
+class Favorito(models.Model):
+    """Productos favoritos de los usuarios"""
+    usuario = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='favoritos',
+        verbose_name='Usuario'
+    )
+    producto = models.ForeignKey(
+        Producto,
+        on_delete=models.CASCADE,
+        related_name='favoritos',
+        verbose_name='Producto'
+    )
+    creado = models.DateTimeField(auto_now_add=True, verbose_name='Fecha de marcado')
+    
+    class Meta:
+        verbose_name = "Favorito"
+        verbose_name_plural = "Favoritos"
+        ordering = ['-creado']
+        unique_together = [['usuario', 'producto']]
+        indexes = [
+            models.Index(fields=['usuario', '-creado']),
+            models.Index(fields=['producto']),
+        ]
+    
+    def __str__(self):
+        return f"{self.usuario.username} - {self.producto.nombre}"
