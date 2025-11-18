@@ -1,48 +1,32 @@
-# Django Core
 Django==5.0.7
 djangorestframework==3.15.2
 django-cors-headers==4.4.0
 django-filter==24.2
-djangorestframework-simplejwt[blacklist]==5.3.1
-
-# Base de datos
 psycopg2-binary==2.9.10
-
-# Utilidades
 python-dotenv==1.0.1
 Pillow==10.4.0
-requests==2.31.0
-
-# Autenticación y autorización
-django-allauth==0.57.0
-dj-rest-auth[social]==5.0.2
-PyJWT==2.8.0
-cryptography==42.0.5
-
-# Pagos
+django-allauth
+requests
+PyJWT
+cryptography
+djangorestframework-simplejwt[blacklist]
+dj-rest-auth[social]>=2.2.0
 stripe>=8.0.0
-
 # Firebase para notificaciones push
 firebase-admin>=6.0.0
-
 # IA para búsqueda semántica
-# Nota: sentence-transformers requiere torch (instalado como dependencia)
 sentence-transformers>=2.2.0
-torch>=2.0.0
-numpy>=1.24.0,<2.0.0
-
+numpy>=1.24.0
 # Machine Learning para dashboard predictivo
-scikit-learn>=1.3.0,<2.0.0
-pandas>=2.1.0,<3.0.0
-joblib>=1.3.0,<2.0.0
-
+scikit-learn>=1.3.0
+pandas>=2.1.0
+joblib>=1.3.0
 # Generación de reportes
 reportlab>=4.0.0
 openpyxl>=3.1.0
 python-dateutil>=2.8.0
-
 # Testing
-pytest>=7.4.0,<8.0.0
-pytest-django>=4.5.2,<5.0.0
-pytest-cov>=4.1.0,<6.0.0
-factory-boy>=3.3.0,<4.0.0
+pytest>=7.4.0
+pytest-django>=4.5.2
+pytest-cov>=4.1.0
+factory-boy>=3.3.0
