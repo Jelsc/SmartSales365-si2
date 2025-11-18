@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
 import 'auth_service.dart';
 import '../config/api_config.dart';
 
@@ -187,6 +188,9 @@ class ProductosService {
     return ApiConfig.getBaseUrl();
   }
 
+  // Exponer método para compartir
+  String getBaseUrl() => _getBaseUrl();
+
   Future<Map<String, String>> _getHeaders() async {
     final token = await _authService.getToken();
     return {
@@ -329,5 +333,214 @@ class ProductosService {
       print('Error en buscarProductos: $e');
       rethrow;
     }
+  }
+
+  // Buscar producto por código de barras
+  Future<Producto?> buscarPorCodigoBarras(String codigo) async {
+    try {
+      final response = await getProductos(search: codigo);
+      if (response.results.isNotEmpty) {
+        // Buscar coincidencia exacta en SKU o código de barras
+        final producto = response.results.firstWhere(
+          (p) => p.sku?.toLowerCase() == codigo.toLowerCase(),
+          orElse: () => response.results.first,
+        );
+        return producto;
+      }
+      return null;
+    } catch (e) {
+      print('Error en buscarPorCodigoBarras: $e');
+      return null;
+    }
+  }
+
+  // Historial de búsquedas
+  static const String _historialKey = 'historial_busquedas';
+  static const int _maxHistorial = 10;
+
+  Future<void> guardarBusqueda(String query) async {
+    if (query.trim().isEmpty) return;
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final historial = await getBusquedasRecientes();
+      
+      // Eliminar si ya existe
+      historial.remove(query.trim());
+      
+      // Agregar al inicio
+      historial.insert(0, query.trim());
+      
+      // Limitar tamaño
+      if (historial.length > _maxHistorial) {
+        historial.removeRange(_maxHistorial, historial.length);
+      }
+      
+      await prefs.setStringList(_historialKey, historial);
+    } catch (e) {
+      print('Error guardando búsqueda: $e');
+    }
+  }
+
+  Future<List<String>> getBusquedasRecientes() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      return prefs.getStringList(_historialKey) ?? [];
+    } catch (e) {
+      print('Error obteniendo historial: $e');
+      return [];
+    }
+  }
+
+  Future<void> limpiarHistorial() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(_historialKey);
+    } catch (e) {
+      print('Error limpiando historial: $e');
+    }
+  }
+
+  // Filtros guardados
+  static const String _filtrosKey = 'filtros_guardados';
+  static const int _maxFiltros = 5;
+
+  Future<void> guardarFiltro({
+    String? categoriaId,
+    double? precioMin,
+    double? precioMax,
+    bool? enOferta,
+    bool? destacado,
+    String? ordenamiento,
+  }) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final filtrosGuardados = await getFiltrosGuardados();
+
+      final nuevoFiltro = {
+        'categoriaId': categoriaId,
+        'precioMin': precioMin,
+        'precioMax': precioMax,
+        'enOferta': enOferta,
+        'destacado': destacado,
+        'ordenamiento': ordenamiento,
+        'nombre': _generarNombreFiltro(
+          categoriaId: categoriaId,
+          precioMin: precioMin,
+          precioMax: precioMax,
+          enOferta: enOferta,
+          destacado: destacado,
+        ),
+        'fecha': DateTime.now().toIso8601String(),
+      };
+
+      // Eliminar si ya existe un filtro idéntico
+      filtrosGuardados.removeWhere((f) => _sonFiltrosIguales(f, nuevoFiltro));
+
+      // Agregar al inicio
+      filtrosGuardados.insert(0, nuevoFiltro);
+
+      // Limitar tamaño
+      if (filtrosGuardados.length > _maxFiltros) {
+        filtrosGuardados.removeRange(_maxFiltros, filtrosGuardados.length);
+      }
+
+      final filtrosJson = jsonEncode(filtrosGuardados);
+      await prefs.setString(_filtrosKey, filtrosJson);
+    } catch (e) {
+      print('Error guardando filtro: $e');
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> getFiltrosGuardados() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final filtrosJson = prefs.getString(_filtrosKey);
+      if (filtrosJson == null) return [];
+
+      final List<dynamic> filtrosList = jsonDecode(filtrosJson);
+      return filtrosList.cast<Map<String, dynamic>>();
+    } catch (e) {
+      print('Error obteniendo filtros guardados: $e');
+      return [];
+    }
+  }
+
+  Future<void> eliminarFiltro(int index) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final filtrosGuardados = await getFiltrosGuardados();
+      if (index >= 0 && index < filtrosGuardados.length) {
+        filtrosGuardados.removeAt(index);
+        final filtrosJson = jsonEncode(filtrosGuardados);
+        await prefs.setString(_filtrosKey, filtrosJson);
+      }
+    } catch (e) {
+      print('Error eliminando filtro: $e');
+    }
+  }
+
+  Future<void> limpiarFiltrosGuardados() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(_filtrosKey);
+    } catch (e) {
+      print('Error limpiando filtros guardados: $e');
+    }
+  }
+
+  String _generarNombreFiltro({
+    String? categoriaId,
+    double? precioMin,
+    double? precioMax,
+    bool? enOferta,
+    bool? destacado,
+  }) {
+    final partes = <String>[];
+
+    if (categoriaId != null) {
+      final categoria = _categoriasCache.firstWhere(
+        (c) => c.id.toString() == categoriaId,
+        orElse: () => Categoria(
+          id: int.parse(categoriaId),
+          nombre: 'Categoría',
+          slug: '',
+          activa: true,
+          orden: 0,
+          productosCount: 0,
+        ),
+      );
+      partes.add(categoria.nombre);
+    }
+
+    if (precioMin != null || precioMax != null) {
+      if (precioMin != null && precioMax != null) {
+        partes.add('Bs. ${precioMin.toStringAsFixed(0)}-${precioMax.toStringAsFixed(0)}');
+      } else if (precioMin != null) {
+        partes.add('Desde Bs. ${precioMin.toStringAsFixed(0)}');
+      } else {
+        partes.add('Hasta Bs. ${precioMax!.toStringAsFixed(0)}');
+      }
+    }
+
+    if (enOferta == true) partes.add('Ofertas');
+    if (destacado == true) partes.add('Destacados');
+
+    return partes.isEmpty ? 'Filtro personalizado' : partes.join(' • ');
+  }
+
+  bool _sonFiltrosIguales(Map<String, dynamic> f1, Map<String, dynamic> f2) {
+    return f1['categoriaId'] == f2['categoriaId'] &&
+        f1['precioMin'] == f2['precioMin'] &&
+        f1['precioMax'] == f2['precioMax'] &&
+        f1['enOferta'] == f2['enOferta'] &&
+        f1['destacado'] == f2['destacado'] &&
+        f1['ordenamiento'] == f2['ordenamiento'];
+  }
+
+  // Cache temporal de categorías para generar nombres
+  static List<Categoria> _categoriasCache = [];
+  static void setCategoriasCache(List<Categoria> categorias) {
+    _categoriasCache = categorias;
   }
 }

@@ -1,7 +1,4 @@
-import 'dart:convert';
-import 'package:http/http.dart' as http;
-import 'package:shared_preferences/shared_preferences.dart';
-import '../config/api_config.dart';
+import '../utils/http_helper.dart';
 
 class Personal {
   final int id;
@@ -64,102 +61,126 @@ class ApiResponse<T> {
 }
 
 class PersonalService {
-  String _getBaseUrl() {
-    final baseUrl = ApiConfig.getBaseUrl();
-    return '$baseUrl/api/personal';
-  }
-
-  Future<String?> _getToken() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getString('access_token');
-  }
-
-  Future<Map<String, String>> _getHeaders() async {
-    final token = await _getToken();
-    return {
-      'Content-Type': 'application/json',
-      'Accept': 'application/json',
-      if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
-    };
-  }
-
   Future<ApiResponse<List<Personal>>> getPersonal({
     String? estado,
     String? busqueda,
   }) async {
     try {
-      final baseUrl = _getBaseUrl();
-      final headers = await _getHeaders();
-
+      // Replicar EXACTAMENTE la lógica del frontend: personalApi.list()
+      // Frontend usa: /api/personal/ con query params
       final queryParams = <String, String>{};
       if (estado != null) queryParams['estado'] = estado;
-      if (busqueda != null && busqueda.isNotEmpty)
+      if (busqueda != null && busqueda.isNotEmpty) {
         queryParams['search'] = busqueda;
+      }
 
-      final uri = Uri.parse(
-        baseUrl,
-      ).replace(queryParameters: queryParams.isEmpty ? null : queryParams);
+      final queryString = queryParams.entries
+          .map((e) => '${Uri.encodeComponent(e.key)}=${Uri.encodeComponent(e.value)}')
+          .join('&');
+      
+      final endpoint = queryString.isNotEmpty 
+          ? '/api/personal/?$queryString' 
+          : '/api/personal/';
 
-      final response = await http.get(uri, headers: headers);
+      print('🔵 Llamando endpoint (igual que frontend): $endpoint');
 
-      if (response.statusCode == 200) {
-        final dynamic responseData = json.decode(
-          utf8.decode(response.bodyBytes),
-        );
+      // Frontend espera formato paginado: { count, next, previous, results }
+      final response = await HttpHelper.get<Map<String, dynamic>>(endpoint);
 
-        List<dynamic> data;
-        if (responseData is List) {
-          data = responseData;
-        } else if (responseData is Map && responseData.containsKey('results')) {
-          data = responseData['results'] as List;
-        } else {
+      if (response.success && response.data != null) {
+        try {
+          final data = response.data!;
+          
+          // Manejar formato paginado (igual que frontend)
+          List<dynamic> results;
+          if (data.containsKey('results')) {
+            // Formato paginado estándar
+            results = data['results'] as List<dynamic>;
+            print('✅ Respuesta paginada: ${results.length} personal (total: ${data['count'] ?? 'N/A'})');
+          } else {
+            results = [];
+            print('⚠️ Formato de respuesta desconocido (no tiene results)');
+          }
+
+          final personal = results
+              .map((json) {
+                try {
+                  return Personal.fromJson(json);
+                } catch (e) {
+                  print('❌ Error parseando personal: $e');
+                  print('❌ JSON del personal: $json');
+                  return null;
+                }
+              })
+              .whereType<Personal>()
+              .toList();
+          
+          print('✅ Personal cargado: ${personal.length}');
+          if (personal.isEmpty && results.isNotEmpty) {
+            print('⚠️ ATENCIÓN: Se recibieron ${results.length} personal del API pero ninguno pudo parsearse');
+          }
+          return ApiResponse(
+            success: true,
+            data: personal,
+            message: 'Personal obtenido exitosamente',
+          );
+        } catch (e, stackTrace) {
+          print('❌ Error parseando lista de personal: $e');
+          print('❌ Stack trace: $stackTrace');
           return ApiResponse(
             success: false,
-            message: 'Formato de respuesta inesperado',
+            message: 'Error parseando personal: $e',
           );
         }
-
-        final personal = data.map((json) => Personal.fromJson(json)).toList();
-
-        return ApiResponse(
-          success: true,
-          data: personal,
-          message: 'Personal obtenido exitosamente',
-        );
       } else {
+        print('❌ Error cargando personal: ${response.error}');
         return ApiResponse(
           success: false,
-          message: 'Error al obtener personal: ${response.statusCode}',
+          message: response.error ?? 'Error desconocido',
         );
       }
     } catch (e) {
+      print('❌ Excepción cargando personal: $e');
       return ApiResponse(success: false, message: 'Error de conexión: $e');
     }
   }
 
   Future<ApiResponse<Personal>> getPersonalById(int id) async {
     try {
-      final baseUrl = _getBaseUrl();
-      final headers = await _getHeaders();
-      final response = await http.get(
-        Uri.parse('$baseUrl/$id/'),
-        headers: headers,
-      );
+      // Replicar EXACTAMENTE la lógica del frontend: personalApi.get(id)
+      // Frontend usa: /api/personal/${id}/
+      final endpoint = '/api/personal/$id/';
+      
+      print('🔵 Llamando endpoint (igual que frontend): $endpoint');
 
-      if (response.statusCode == 200) {
-        final data = json.decode(utf8.decode(response.bodyBytes));
-        return ApiResponse(
-          success: true,
-          data: Personal.fromJson(data),
-          message: 'Personal obtenido exitosamente',
-        );
+      final response = await HttpHelper.get<Map<String, dynamic>>(endpoint);
+
+      if (response.success && response.data != null) {
+        try {
+          final personal = Personal.fromJson(response.data!);
+          print('✅ Personal cargado: ${personal.nombre} ${personal.apellido}');
+          return ApiResponse(
+            success: true,
+            data: personal,
+            message: 'Personal obtenido exitosamente',
+          );
+        } catch (e, stackTrace) {
+          print('❌ Error parseando personal: $e');
+          print('❌ Stack trace: $stackTrace');
+          return ApiResponse(
+            success: false,
+            message: 'Error parseando personal: $e',
+          );
+        }
       } else {
+        print('❌ Error cargando personal: ${response.error}');
         return ApiResponse(
           success: false,
-          message: 'Error al obtener personal',
+          message: response.error ?? 'Error desconocido',
         );
       }
     } catch (e) {
+      print('❌ Excepción cargando personal: $e');
       return ApiResponse(success: false, message: 'Error: $e');
     }
   }

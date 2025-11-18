@@ -1,7 +1,4 @@
-import 'dart:convert';
-import 'package:http/http.dart' as http;
-import 'package:shared_preferences/shared_preferences.dart';
-import '../config/api_config.dart';
+import '../utils/http_helper.dart';
 
 class Rol {
   final int id;
@@ -54,78 +51,102 @@ class ApiResponse<T> {
 }
 
 class RolesService {
-  Future<String?> _getToken() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getString('access_token');
-  }
-
-  Future<Map<String, String>> _getHeaders() async {
-    final token = await _getToken();
-    return {
-      'Content-Type': 'application/json',
-      'Accept': 'application/json',
-      if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
-    };
-  }
-
   Future<ApiResponse<List<Rol>>> getRoles({String? busqueda}) async {
     try {
-      final baseUrl = ApiConfig.getBaseUrl();
+      // Replicar EXACTAMENTE la lógica del frontend: roleService.getRoles()
+      // Frontend usa: /api/roles/ con query params
       final Map<String, String> queryParams = {};
-
       if (busqueda != null && busqueda.isNotEmpty) {
         queryParams['search'] = busqueda;
       }
 
-      final uri = Uri.parse(
-        '$baseUrl/api/roles/',
-      ).replace(queryParameters: queryParams.isNotEmpty ? queryParams : null);
+      final queryString = queryParams.entries
+          .map((e) => '${Uri.encodeComponent(e.key)}=${Uri.encodeComponent(e.value)}')
+          .join('&');
+      
+      final endpoint = queryString.isNotEmpty 
+          ? '/api/roles/?$queryString' 
+          : '/api/roles/';
 
-      final response = await http.get(uri, headers: await _getHeaders());
+      print('🔵 Llamando endpoint (igual que frontend): $endpoint');
 
-      if (response.statusCode == 200) {
-        final dynamic responseData = json.decode(
-          utf8.decode(response.bodyBytes),
-        );
+      // Frontend espera formato paginado: { count, next, previous, results }
+      final response = await HttpHelper.get<Map<String, dynamic>>(endpoint);
 
-        List<dynamic> data;
-        if (responseData is List) {
-          data = responseData;
-        } else if (responseData is Map && responseData.containsKey('results')) {
-          data = responseData['results'] as List;
-        } else {
-          data = [];
+      if (response.success && response.data != null) {
+        try {
+          final data = response.data!;
+          
+          // Manejar formato paginado (igual que frontend)
+          List<dynamic> results;
+          if (data.containsKey('results')) {
+            // Formato paginado estándar
+            results = data['results'] as List<dynamic>;
+            print('✅ Respuesta paginada: ${results.length} roles (total: ${data['count'] ?? 'N/A'})');
+          } else {
+            results = [];
+            print('⚠️ Formato de respuesta desconocido (no tiene results)');
+          }
+
+          final roles = results
+              .map((json) {
+                try {
+                  return Rol.fromJson(json);
+                } catch (e) {
+                  print('❌ Error parseando rol: $e');
+                  print('❌ JSON del rol: $json');
+                  return null;
+                }
+              })
+              .whereType<Rol>()
+              .toList();
+          
+          print('✅ Roles cargados: ${roles.length}');
+          if (roles.isEmpty && results.isNotEmpty) {
+            print('⚠️ ATENCIÓN: Se recibieron ${results.length} roles del API pero ninguno pudo parsearse');
+          }
+          return ApiResponse.success(roles);
+        } catch (e, stackTrace) {
+          print('❌ Error parseando lista de roles: $e');
+          print('❌ Stack trace: $stackTrace');
+          return ApiResponse.error('Error parseando roles: $e');
         }
-
-        final roles = data.map((json) => Rol.fromJson(json)).toList();
-        return ApiResponse.success(roles);
       } else {
-        return ApiResponse.error(
-          'Error al cargar roles: ${response.statusCode}',
-        );
+        print('❌ Error cargando roles: ${response.error}');
+        return ApiResponse.error(response.error ?? 'Error desconocido');
       }
     } catch (e) {
+      print('❌ Excepción cargando roles: $e');
       return ApiResponse.error('Error de conexión: $e');
     }
   }
 
   Future<ApiResponse<Rol>> getRol(int id) async {
     try {
-      final baseUrl = ApiConfig.getBaseUrl();
-      final response = await http.get(
-        Uri.parse('$baseUrl/api/roles/$id/'),
-        headers: await _getHeaders(),
-      );
+      // Replicar EXACTAMENTE la lógica del frontend: roleService.getRoleById(id)
+      // Frontend usa: /api/roles/${id}/
+      final endpoint = '/api/roles/$id/';
+      
+      print('🔵 Llamando endpoint (igual que frontend): $endpoint');
 
-      if (response.statusCode == 200) {
-        final dynamic responseData = json.decode(
-          utf8.decode(response.bodyBytes),
-        );
-        return ApiResponse.success(Rol.fromJson(responseData));
+      final response = await HttpHelper.get<Map<String, dynamic>>(endpoint);
+
+      if (response.success && response.data != null) {
+        try {
+          final rol = Rol.fromJson(response.data!);
+          print('✅ Rol cargado: ${rol.nombre}');
+          return ApiResponse.success(rol);
+        } catch (e, stackTrace) {
+          print('❌ Error parseando rol: $e');
+          print('❌ Stack trace: $stackTrace');
+          return ApiResponse.error('Error parseando rol: $e');
+        }
       } else {
-        return ApiResponse.error('Error al cargar rol: ${response.statusCode}');
+        print('❌ Error cargando rol: ${response.error}');
+        return ApiResponse.error(response.error ?? 'Error desconocido');
       }
     } catch (e) {
+      print('❌ Excepción cargando rol: $e');
       return ApiResponse.error('Error de conexión: $e');
     }
   }

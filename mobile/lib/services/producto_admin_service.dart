@@ -1,11 +1,7 @@
-import 'dart:convert';
-import 'package:http/http.dart' as http;
-import '../config/api_config.dart';
-import 'auth_service.dart';
+import '../utils/http_helper.dart';
 
 /// Servicio para gestionar productos desde el panel admin
 class ProductoAdminService {
-  final AuthService _authService = AuthService();
 
   /// Obtener todos los productos
   Future<ApiResponse<List<Producto>>> getProductos({
@@ -15,52 +11,108 @@ class ProductoAdminService {
     String? busqueda,
   }) async {
     try {
-      final baseUrl = ApiConfig.getBaseUrl();
-      var url = '$baseUrl/api/productos/';
-
-      // Agregar parámetros de filtro
-      final params = <String, String>{};
-      if (categoria != null) params['categoria'] = categoria;
-      if (activo != null) params['activo'] = activo.toString();
-      if (destacado != null) params['destacado'] = destacado.toString();
-      if (busqueda != null && busqueda.isNotEmpty) params['search'] = busqueda;
-
-      if (params.isNotEmpty) {
-        url += '?${params.entries.map((e) => '${e.key}=${e.value}').join('&')}';
+      // Replicar EXACTAMENTE la lógica del frontend: productosService.getAll()
+      // Frontend usa: /api/productos/ con query params y espera formato paginado
+      final queryParams = <String, String>{};
+      if (categoria != null) queryParams['categoria'] = categoria;
+      if (activo != null) queryParams['activo'] = activo.toString();
+      if (destacado != null) queryParams['destacado'] = destacado.toString();
+      if (busqueda != null && busqueda.isNotEmpty) {
+        queryParams['search'] = busqueda;
       }
 
-      final token = await _authService.getToken();
-      if (token == null) {
-        return ApiResponse(success: false, message: 'No autenticado');
-      }
+      final queryString = queryParams.entries
+          .map((e) => '${Uri.encodeComponent(e.key)}=${Uri.encodeComponent(e.value)}')
+          .join('&');
+      
+      final endpoint = queryString.isNotEmpty 
+          ? '/api/productos/?$queryString' 
+          : '/api/productos/';
 
-      final response = await http.get(
-        Uri.parse(url),
-        headers: {
-          'Authorization': 'Bearer $token',
-          'Content-Type': 'application/json',
-        },
+      print('🔵 Llamando endpoint (igual que frontend): $endpoint');
+
+      // Frontend espera formato paginado: { count, next, previous, results }
+      final response = await HttpHelper.get<Map<String, dynamic>>(
+        endpoint,
       );
 
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        final List<dynamic> results = data['results'] ?? data;
-        final productos = results
-            .map((json) => Producto.fromJson(json))
-            .toList();
+      if (response.success && response.data != null) {
+        try {
+          final data = response.data!;
+          
+          print('📦 Data recibida (keys): ${data.keys.toList()}');
+          print('📦 Data completa (primeros 500 chars): ${data.toString().substring(0, data.toString().length > 500 ? 500 : data.toString().length)}');
+          
+          // Manejar formato paginado (igual que frontend)
+          List<dynamic> results;
+          if (data.containsKey('results')) {
+            // Formato paginado estándar
+            results = data['results'] as List<dynamic>;
+            print('✅ Respuesta paginada: ${results.length} productos (total: ${data['count'] ?? 'N/A'})');
+            
+            if (results.isNotEmpty) {
+              print('📦 Primer producto (raw): ${results[0]}');
+            }
+          } else if (data is List) {
+            // Si es una lista directa (no paginada)
+            results = data as List<dynamic>;
+            print('✅ Respuesta directa (lista): ${results.length} productos');
+            
+            if (results.isNotEmpty) {
+              print('📦 Primer producto (raw): ${results[0]}');
+            }
+          } else {
+            results = [];
+            print('⚠️ Formato de respuesta desconocido (no tiene results ni es lista)');
+            print('⚠️ Tipo de data: ${data.runtimeType}');
+          }
 
-        return ApiResponse(
-          success: true,
-          data: productos,
-          message: 'Productos obtenidos correctamente',
-        );
+          final productos = <Producto>[];
+          for (var i = 0; i < results.length; i++) {
+            try {
+              final json = results[i];
+              print('🔄 Parseando producto ${i + 1}/${results.length}...');
+              final producto = Producto.fromJson(json);
+              productos.add(producto);
+              print('✅ Producto ${i + 1} parseado: ${producto.nombre}');
+            } catch (e, stackTrace) {
+              print('❌ Error parseando producto ${i + 1}: $e');
+              print('❌ Stack trace: $stackTrace');
+              print('❌ JSON del producto: ${results[i]}');
+            }
+          }
+
+          print('✅ Productos parseados exitosamente: ${productos.length} de ${results.length}');
+          if (productos.isEmpty && results.isNotEmpty) {
+            print('⚠️ ATENCIÓN: Se recibieron ${results.length} productos del API pero ninguno pudo parsearse');
+            print('⚠️ Revisar el primer producto (raw): ${results[0]}');
+          }
+          
+          return ApiResponse(
+            success: true,
+            data: productos,
+            message: 'Productos obtenidos correctamente',
+          );
+        } catch (e, stackTrace) {
+          print('❌ Error parseando lista de productos: $e');
+          print('❌ Stack trace: $stackTrace');
+          print('❌ Data recibida: ${response.data}');
+          return ApiResponse(
+            success: false,
+            message: 'Error parseando productos: $e',
+          );
+        }
       } else {
+        print('❌ Error cargando productos: ${response.error}');
+        print('❌ Response success: ${response.success}');
+        print('❌ Response data: ${response.data}');
         return ApiResponse(
           success: false,
-          message: 'Error al obtener productos: ${response.statusCode}',
+          message: response.error ?? 'Error desconocido',
         );
       }
     } catch (e) {
+      print('❌ Excepción cargando productos: $e');
       return ApiResponse(success: false, message: 'Error de conexión: $e');
     }
   }
@@ -68,36 +120,36 @@ class ProductoAdminService {
   /// Obtener un producto por ID
   Future<ApiResponse<Producto>> getProducto(int id) async {
     try {
-      final baseUrl = ApiConfig.getBaseUrl();
-      final url = '$baseUrl/api/productos/$id/';
-
-      final token = await _authService.getToken();
-      if (token == null) {
-        return ApiResponse(success: false, message: 'No autenticado');
-      }
-
-      final response = await http.get(
-        Uri.parse(url),
-        headers: {
-          'Authorization': 'Bearer $token',
-          'Content-Type': 'application/json',
-        },
+      final response = await HttpHelper.get<Map<String, dynamic>>(
+        '/api/productos/$id/',
       );
 
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        return ApiResponse(
-          success: true,
-          data: Producto.fromJson(data),
-          message: 'Producto obtenido correctamente',
-        );
+      if (response.success && response.data != null) {
+        try {
+          final producto = Producto.fromJson(response.data!);
+          print('✅ Producto cargado: ${producto.nombre}');
+          return ApiResponse(
+            success: true,
+            data: producto,
+            message: 'Producto obtenido correctamente',
+          );
+        } catch (e, stackTrace) {
+          print('❌ Error parseando producto: $e');
+          print('❌ Stack trace: $stackTrace');
+          return ApiResponse(
+            success: false,
+            message: 'Error parseando producto: $e',
+          );
+        }
       } else {
+        print('❌ Error cargando producto: ${response.error}');
         return ApiResponse(
           success: false,
-          message: 'Error al obtener producto',
+          message: response.error ?? 'Error desconocido',
         );
       }
     } catch (e) {
+      print('❌ Excepción cargando producto: $e');
       return ApiResponse(success: false, message: 'Error: $e');
     }
   }
@@ -114,15 +166,7 @@ class ProductoAdminService {
     bool destacado = false,
   }) async {
     try {
-      final baseUrl = ApiConfig.getBaseUrl();
-      final url = '$baseUrl/api/productos/';
-
-      final token = await _authService.getToken();
-      if (token == null) {
-        return ApiResponse(success: false, message: 'No autenticado');
-      }
-
-      final body = jsonEncode({
+      final body = {
         'nombre': nombre,
         'descripcion': descripcion,
         'precio': precio,
@@ -131,32 +175,40 @@ class ProductoAdminService {
         'imagen': imagen ?? '',
         'activo': activo,
         'destacado': destacado,
-      });
+      };
 
-      final response = await http.post(
-        Uri.parse(url),
-        headers: {
-          'Authorization': 'Bearer $token',
-          'Content-Type': 'application/json',
-        },
-        body: body,
+      final response = await HttpHelper.post<Map<String, dynamic>>(
+        '/api/productos/',
+        body,
+        parser: (data) => data as Map<String, dynamic>,
       );
 
-      if (response.statusCode == 201) {
-        final data = jsonDecode(response.body);
-        return ApiResponse(
-          success: true,
-          data: Producto.fromJson(data),
-          message: 'Producto creado exitosamente',
-        );
+      if (response.success && response.data != null) {
+        try {
+          final producto = Producto.fromJson(response.data!);
+          print('✅ Producto creado: ${producto.nombre}');
+          return ApiResponse(
+            success: true,
+            data: producto,
+            message: 'Producto creado exitosamente',
+          );
+        } catch (e, stackTrace) {
+          print('❌ Error parseando producto creado: $e');
+          print('❌ Stack trace: $stackTrace');
+          return ApiResponse(
+            success: false,
+            message: 'Error parseando producto: $e',
+          );
+        }
       } else {
-        final error = jsonDecode(response.body);
+        print('❌ Error creando producto: ${response.error}');
         return ApiResponse(
           success: false,
-          message: error['detail'] ?? 'Error al crear producto',
+          message: response.error ?? 'Error al crear producto',
         );
       }
     } catch (e) {
+      print('❌ Excepción creando producto: $e');
       return ApiResponse(success: false, message: 'Error: $e');
     }
   }
@@ -174,14 +226,6 @@ class ProductoAdminService {
     bool? destacado,
   }) async {
     try {
-      final baseUrl = ApiConfig.getBaseUrl();
-      final url = '$baseUrl/api/productos/$id/';
-
-      final token = await _authService.getToken();
-      if (token == null) {
-        return ApiResponse(success: false, message: 'No autenticado');
-      }
-
       final body = <String, dynamic>{};
       if (nombre != null) body['nombre'] = nombre;
       if (descripcion != null) body['descripcion'] = descripcion;
@@ -192,29 +236,38 @@ class ProductoAdminService {
       if (activo != null) body['activo'] = activo;
       if (destacado != null) body['destacado'] = destacado;
 
-      final response = await http.patch(
-        Uri.parse(url),
-        headers: {
-          'Authorization': 'Bearer $token',
-          'Content-Type': 'application/json',
-        },
-        body: jsonEncode(body),
+      final response = await HttpHelper.patch<Map<String, dynamic>>(
+        '/api/productos/$id/',
+        body,
+        parser: (data) => data as Map<String, dynamic>,
       );
 
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        return ApiResponse(
-          success: true,
-          data: Producto.fromJson(data),
-          message: 'Producto actualizado exitosamente',
-        );
+      if (response.success && response.data != null) {
+        try {
+          final producto = Producto.fromJson(response.data!);
+          print('✅ Producto actualizado: ${producto.nombre}');
+          return ApiResponse(
+            success: true,
+            data: producto,
+            message: 'Producto actualizado exitosamente',
+          );
+        } catch (e, stackTrace) {
+          print('❌ Error parseando producto actualizado: $e');
+          print('❌ Stack trace: $stackTrace');
+          return ApiResponse(
+            success: false,
+            message: 'Error parseando producto: $e',
+          );
+        }
       } else {
+        print('❌ Error actualizando producto: ${response.error}');
         return ApiResponse(
           success: false,
-          message: 'Error al actualizar producto',
+          message: response.error ?? 'Error al actualizar producto',
         );
       }
     } catch (e) {
+      print('❌ Excepción actualizando producto: $e');
       return ApiResponse(success: false, message: 'Error: $e');
     }
   }
@@ -222,34 +275,23 @@ class ProductoAdminService {
   /// Eliminar un producto
   Future<ApiResponse<void>> eliminarProducto(int id) async {
     try {
-      final baseUrl = ApiConfig.getBaseUrl();
-      final url = '$baseUrl/api/productos/$id/';
+      final response = await HttpHelper.delete('/api/productos/$id/');
 
-      final token = await _authService.getToken();
-      if (token == null) {
-        return ApiResponse(success: false, message: 'No autenticado');
-      }
-
-      final response = await http.delete(
-        Uri.parse(url),
-        headers: {
-          'Authorization': 'Bearer $token',
-          'Content-Type': 'application/json',
-        },
-      );
-
-      if (response.statusCode == 204) {
+      if (response.success) {
+        print('✅ Producto eliminado: ID $id');
         return ApiResponse(
           success: true,
           message: 'Producto eliminado exitosamente',
         );
       } else {
+        print('❌ Error eliminando producto: ${response.error}');
         return ApiResponse(
           success: false,
-          message: 'Error al eliminar producto',
+          message: response.error ?? 'Error al eliminar producto',
         );
       }
     } catch (e) {
+      print('❌ Excepción eliminando producto: $e');
       return ApiResponse(success: false, message: 'Error: $e');
     }
   }
@@ -257,38 +299,49 @@ class ProductoAdminService {
   /// Obtener categorías disponibles
   Future<ApiResponse<List<Categoria>>> getCategorias() async {
     try {
-      final baseUrl = ApiConfig.getBaseUrl();
-      final url = '$baseUrl/api/categorias/';
+      final response = await HttpHelper.get<List<dynamic>>('/api/categorias/');
 
-      final token = await _authService.getToken();
+      if (response.success && response.data != null) {
+        try {
+          final categorias = response.data!
+              .map((json) {
+                try {
+                  return Categoria.fromJson(json);
+                } catch (e) {
+                  print('❌ Error parseando categoría: $e');
+                  print('❌ JSON de la categoría: $json');
+                  return null;
+                }
+              })
+              .whereType<Categoria>()
+              .toList();
 
-      final response = await http.get(
-        Uri.parse(url),
-        headers: {
-          if (token != null) 'Authorization': 'Bearer $token',
-          'Content-Type': 'application/json',
-        },
-      );
-
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        final List<dynamic> results = data['results'] ?? data;
-        final categorias = results
-            .map((json) => Categoria.fromJson(json))
-            .toList();
-
-        return ApiResponse(
-          success: true,
-          data: categorias,
-          message: 'Categorías obtenidas correctamente',
-        );
+          print('✅ Categorías cargadas: ${categorias.length}');
+          if (categorias.isEmpty && response.data!.isNotEmpty) {
+            print('⚠️ ATENCIÓN: Se recibieron ${response.data!.length} categorías del API pero ninguna pudo parsearse');
+          }
+          return ApiResponse(
+            success: true,
+            data: categorias,
+            message: 'Categorías obtenidas correctamente',
+          );
+        } catch (e, stackTrace) {
+          print('❌ Error parseando lista de categorías: $e');
+          print('❌ Stack trace: $stackTrace');
+          return ApiResponse(
+            success: false,
+            message: 'Error parseando categorías: $e',
+          );
+        }
       } else {
+        print('❌ Error cargando categorías: ${response.error}');
         return ApiResponse(
           success: false,
-          message: 'Error al obtener categorías',
+          message: response.error ?? 'Error desconocido',
         );
       }
     } catch (e) {
+      print('❌ Excepción cargando categorías: $e');
       return ApiResponse(success: false, message: 'Error: $e');
     }
   }
@@ -325,22 +378,109 @@ class Producto {
   });
 
   factory Producto.fromJson(Map<String, dynamic> json) {
-    return Producto(
-      id: json['id'] ?? 0,
-      nombre: json['nombre'] ?? '',
-      descripcion: json['descripcion'] ?? '',
-      precio: (json['precio'] ?? 0).toDouble(),
-      imagen: json['imagen'],
-      stock: json['stock'] ?? 0,
-      categoria: json['categoria_nombre'] ?? json['categoria'] ?? '',
-      categoriaId: json['categoria_id'] ?? json['categoria'] ?? 0,
-      activo: json['activo'] ?? true,
-      destacado: json['destacado'] ?? false,
-      disponible: json['disponible'] ?? true,
-      createdAt: json['created_at'] != null
-          ? DateTime.parse(json['created_at'])
-          : DateTime.now(),
-    );
+    try {
+      // El backend devuelve 'descripcion_corta' en el ProductoListSerializer
+      // También devuelve 'creado' en lugar de 'created_at'
+      final descripcion = json['descripcion_corta'] ?? 
+                          json['descripcion'] ?? 
+                          '';
+      
+      // Manejar fecha: puede venir como 'creado' o 'created_at'
+      DateTime createdAt;
+      if (json['creado'] != null) {
+        try {
+          createdAt = DateTime.parse(json['creado']);
+        } catch (e) {
+          print('⚠️ Error parseando fecha "creado": $e');
+          createdAt = DateTime.now();
+        }
+      } else if (json['created_at'] != null) {
+        try {
+          createdAt = DateTime.parse(json['created_at']);
+        } catch (e) {
+          print('⚠️ Error parseando fecha "created_at": $e');
+          createdAt = DateTime.now();
+        }
+      } else {
+        createdAt = DateTime.now();
+      }
+      
+      // Manejar imagen: puede venir como 'imagen' o 'imagen_principal'
+      final imagen = json['imagen_principal'] ?? 
+                     json['imagen'] ?? 
+                     null;
+      
+      // Manejar categoria: puede ser un objeto o un ID
+      String categoriaNombre = '';
+      int categoriaIdValue = 0;
+      
+      if (json['categoria'] != null) {
+        if (json['categoria'] is Map) {
+          // Si categoria es un objeto
+          final catObj = json['categoria'] as Map<String, dynamic>;
+          categoriaNombre = catObj['nombre']?.toString() ?? '';
+          categoriaIdValue = catObj['id'] is int 
+              ? catObj['id'] as int 
+              : (catObj['id'] is String ? int.tryParse(catObj['id']) ?? 0 : 0);
+        } else if (json['categoria'] is String) {
+          categoriaNombre = json['categoria'] as String;
+          categoriaIdValue = json['categoria_id'] is int 
+              ? json['categoria_id'] as int 
+              : (json['categoria_id'] is String ? int.tryParse(json['categoria_id']) ?? 0 : 0);
+        } else if (json['categoria'] is int) {
+          categoriaIdValue = json['categoria'] as int;
+          categoriaNombre = json['categoria_nombre']?.toString() ?? '';
+        }
+      } else {
+        // Si no hay categoria en el objeto principal, buscar en otros lugares
+        categoriaNombre = json['categoria_nombre']?.toString() ?? '';
+        categoriaIdValue = json['categoria_id'] is int 
+            ? json['categoria_id'] as int 
+            : (json['categoria_id'] is String ? int.tryParse(json['categoria_id']) ?? 0 : 0);
+      }
+      
+      // Validar campos requeridos
+      if (json['id'] == null) {
+        throw Exception('Campo "id" es requerido pero no está presente');
+      }
+      if (json['nombre'] == null || json['nombre'].toString().isEmpty) {
+        throw Exception('Campo "nombre" es requerido pero no está presente o está vacío');
+      }
+      
+      return Producto(
+        id: json['id'] is int ? json['id'] as int : int.tryParse(json['id'].toString()) ?? 0,
+        nombre: json['nombre']?.toString() ?? '',
+        descripcion: descripcion,
+        precio: json['precio'] != null 
+            ? (json['precio'] is double 
+                ? json['precio'] as double 
+                : (json['precio'] is int 
+                    ? (json['precio'] as int).toDouble() 
+                    : double.tryParse(json['precio'].toString()) ?? 0.0))
+            : 0.0,
+        imagen: imagen?.toString(),
+        stock: json['stock'] is int 
+            ? json['stock'] as int 
+            : (json['stock'] is String ? int.tryParse(json['stock']) ?? 0 : 0),
+        categoria: categoriaNombre,
+        categoriaId: categoriaIdValue,
+        activo: json['activo'] is bool 
+            ? json['activo'] as bool 
+            : (json['activo']?.toString().toLowerCase() == 'true' ? true : (json['activo'] != null && json['activo'] != false)),
+        destacado: json['destacado'] is bool 
+            ? json['destacado'] as bool 
+            : (json['destacado']?.toString().toLowerCase() == 'true' ? true : false),
+        disponible: (json['stock'] is int 
+            ? json['stock'] as int 
+            : (json['stock'] is String ? int.tryParse(json['stock']) ?? 0 : 0)) > 0,
+        createdAt: createdAt,
+      );
+    } catch (e, stackTrace) {
+      print('❌ Error en Producto.fromJson: $e');
+      print('❌ Stack trace: $stackTrace');
+      print('❌ JSON recibido: $json');
+      rethrow;
+    }
   }
 }
 
@@ -374,8 +514,8 @@ class Categoria {
 /// Respuesta genérica de API
 class ApiResponse<T> {
   final bool success;
-  final T? data;
   final String? message;
+  final T? data;
 
-  ApiResponse({required this.success, this.data, this.message});
+  ApiResponse({required this.success, this.message, this.data});
 }

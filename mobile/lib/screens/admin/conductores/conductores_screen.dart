@@ -28,6 +28,10 @@ class _ConductoresScreenState extends State<ConductoresScreen> {
       _isLoading = false;
       if (response.success && response.data != null) {
         _conductores = response.data!;
+      } else {
+        print('Error cargando conductores: ${response.message}');
+        // Si hay error, mantener la lista vacía para mostrar el estado vacío
+        _conductores = [];
       }
     });
   }

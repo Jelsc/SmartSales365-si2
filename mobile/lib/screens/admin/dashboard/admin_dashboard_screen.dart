@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../services/dashboard_admin_service.dart';
 import '../admin_drawer.dart';
+import '../../../utils/diagnostico_debug.dart';
 
 class AdminDashboardScreen extends StatefulWidget {
   const AdminDashboardScreen({super.key});
@@ -21,6 +22,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   @override
   void initState() {
     super.initState();
+    // Ejecutar diagnóstico completo al cargar
+    DiagnosticoDebug.ejecutarDiagnosticoCompleto();
     _loadDashboardData();
   }
 
@@ -32,28 +35,45 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
     try {
       // Cargar estadísticas
+      print('📊 Intentando cargar estadísticas...');
       final statsResponse = await _dashboardService.getEstadisticas();
       if (statsResponse.success && statsResponse.data != null) {
-        _stats = statsResponse.data;
+        print('✅ Estadísticas cargadas exitosamente');
+        setState(() {
+          _stats = statsResponse.data;
+        });
+      } else {
+        print('❌ Error cargando estadísticas: ${statsResponse.message}');
+        print('❌ Response success: ${statsResponse.success}');
+        print('❌ Response data: ${statsResponse.data}');
       }
 
       // Cargar productos bajo stock
       final stockResponse = await _dashboardService.getProductosBajoStock();
       if (stockResponse.success && stockResponse.data != null) {
-        _productosBajoStock = stockResponse.data!;
+        setState(() {
+          _productosBajoStock = stockResponse.data!;
+        });
+      } else {
+        print('Error cargando productos bajo stock: ${stockResponse.message}');
       }
 
       // Cargar actividades recientes
       final actividadesResponse = await _dashboardService
           .getActividadesRecientes();
       if (actividadesResponse.success && actividadesResponse.data != null) {
-        _actividades = actividadesResponse.data!;
+        setState(() {
+          _actividades = actividadesResponse.data!;
+        });
+      } else {
+        print('Error cargando actividades: ${actividadesResponse.message}');
       }
 
       setState(() {
         _isLoading = false;
       });
     } catch (e) {
+      print('Excepción al cargar dashboard: $e');
       setState(() {
         _error = 'Error al cargar datos: $e';
         _isLoading = false;
@@ -107,6 +127,16 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                     if (_stats != null) ...[
                       _buildStatsSection(),
                       const SizedBox(height: 24),
+                    ] else if (!_isLoading) ...[
+                      const Center(
+                        child: Padding(
+                          padding: EdgeInsets.all(32.0),
+                          child: Text(
+                            'No se pudieron cargar las estadísticas',
+                            style: TextStyle(color: Colors.grey),
+                          ),
+                        ),
+                      ),
                     ],
 
                     // Ingresos

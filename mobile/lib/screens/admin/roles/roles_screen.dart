@@ -28,6 +28,10 @@ class _RolesScreenState extends State<RolesScreen> {
       _isLoading = false;
       if (response.success && response.data != null) {
         _roles = response.data!;
+      } else {
+        print('Error cargando roles: ${response.error}');
+        // Si hay error, mantener la lista vacía para mostrar el estado vacío
+        _roles = [];
       }
     });
   }

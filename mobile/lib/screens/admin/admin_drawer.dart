@@ -53,6 +53,11 @@ class _AdminDrawerState extends State<AdminDrawer> {
           _toggleExpanded('e-commerce');
         }
       }
+
+      // Reportes Inteligentes
+      if (_isRouteActive('/admin/reportes')) {
+        // No necesita expansión, es un módulo simple
+      }
     });
   }
 
@@ -218,6 +223,15 @@ class _AdminDrawerState extends State<AdminDrawer> {
                   icon: Icons.bar_chart,
                   title: 'Dashboard Analytics',
                   route: '/admin/dashboard',
+                ),
+
+                const Divider(height: 1),
+
+                // Reportes Inteligentes
+                _buildMenuItem(
+                  icon: Icons.description,
+                  title: 'Reportes Inteligentes',
+                  route: '/admin/reportes',
                 ),
 
                 const Divider(height: 1),

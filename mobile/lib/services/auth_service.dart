@@ -885,7 +885,7 @@ class AuthService {
   // Guardar access token
   Future<void> saveToken(String token) async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('auth_token', token);
+    await prefs.setString('access_token', token); // CORREGIDO: debe ser 'access_token' igual que http_helper.dart
   }
 
   // Guardar refresh token
@@ -897,7 +897,7 @@ class AuthService {
   // Obtener access token
   Future<String?> getToken() async {
     final prefs = await SharedPreferences.getInstance();
-    return prefs.getString('auth_token');
+    return prefs.getString('access_token'); // CORREGIDO: debe ser 'access_token' igual que http_helper.dart
   }
 
   // Obtener refresh token
@@ -909,14 +909,14 @@ class AuthService {
   // Limpiar todos los tokens
   Future<void> clearTokens() async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.remove('auth_token');
+    await prefs.remove('access_token');
     await prefs.remove('refresh_token');
   }
 
   // Limpiar solo access token (para compatibilidad)
   Future<void> clearToken() async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.remove('auth_token');
+    await prefs.remove('access_token');
   }
 
   // Verificar si está autenticado

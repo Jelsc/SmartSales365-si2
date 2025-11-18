@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../admin_drawer.dart';
 import '../../../services/usuarios_service.dart';
+import '../../../utils/diagnostico_debug.dart';
 
 class UsuariosScreen extends StatefulWidget {
   const UsuariosScreen({super.key});
@@ -18,6 +19,8 @@ class _UsuariosScreenState extends State<UsuariosScreen> {
   @override
   void initState() {
     super.initState();
+    // Ejecutar diagnóstico completo al cargar
+    DiagnosticoDebug.ejecutarDiagnosticoCompleto();
     _cargarUsuarios();
   }
 
@@ -28,6 +31,11 @@ class _UsuariosScreenState extends State<UsuariosScreen> {
       _isLoading = false;
       if (response.success && response.data != null) {
         _usuarios = response.data!;
+        print('✅ Usuarios cargados en UI: ${_usuarios.length}');
+      } else {
+        print('❌ Error cargando usuarios: ${response.error}');
+        // Si hay error, mantener la lista vacía para mostrar el estado vacío
+        _usuarios = [];
       }
     });
   }

@@ -1,7 +1,4 @@
-import 'dart:convert';
-import 'package:http/http.dart' as http;
-import 'package:shared_preferences/shared_preferences.dart';
-import '../config/api_config.dart';
+import '../utils/http_helper.dart';
 
 class Usuario {
   final int id;
@@ -76,80 +73,106 @@ class ApiResponse<T> {
 }
 
 class UsuariosService {
-  Future<String?> _getToken() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getString('access_token');
-  }
-
-  Future<Map<String, String>> _getHeaders() async {
-    final token = await _getToken();
-    return {
-      'Content-Type': 'application/json',
-      'Accept': 'application/json',
-      if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
-    };
-  }
-
   Future<ApiResponse<List<Usuario>>> getUsuarios({String? busqueda}) async {
     try {
-      final baseUrl = ApiConfig.getBaseUrl();
+      // Replicar EXACTAMENTE la lógica del frontend: usuariosApi.list()
+      // Frontend usa: /api/admin/users/ con query params
       final Map<String, String> queryParams = {};
-
       if (busqueda != null && busqueda.isNotEmpty) {
         queryParams['search'] = busqueda;
       }
 
-      final uri = Uri.parse(
-        '$baseUrl/api/users/',
-      ).replace(queryParameters: queryParams.isNotEmpty ? queryParams : null);
+      final queryString = queryParams.entries
+          .map((e) => '${Uri.encodeComponent(e.key)}=${Uri.encodeComponent(e.value)}')
+          .join('&');
+      
+      final endpoint = queryString.isNotEmpty 
+          ? '/api/admin/users/?$queryString' 
+          : '/api/admin/users/';
 
-      final response = await http.get(uri, headers: await _getHeaders());
+      print('🔵 Llamando endpoint (igual que frontend): $endpoint');
 
-      if (response.statusCode == 200) {
-        final dynamic responseData = json.decode(
-          utf8.decode(response.bodyBytes),
-        );
+      // Frontend espera formato paginado: { count, next, previous, results }
+      final response = await HttpHelper.get<Map<String, dynamic>>(endpoint);
 
-        List<dynamic> data;
-        if (responseData is List) {
-          data = responseData;
-        } else if (responseData is Map && responseData.containsKey('results')) {
-          data = responseData['results'] as List;
-        } else {
-          data = [];
+      if (response.success && response.data != null) {
+        try {
+          final data = response.data!;
+          
+          // Manejar formato paginado (igual que frontend)
+          List<dynamic> results;
+          if (data.containsKey('results')) {
+            // Formato paginado estándar
+            results = data['results'] as List<dynamic>;
+            print('✅ Respuesta paginada: ${results.length} usuarios (total: ${data['count'] ?? 'N/A'})');
+          } else {
+            results = [];
+            print('⚠️ Formato de respuesta desconocido (no tiene results ni es lista)');
+          }
+
+          final usuarios = results
+              .map((json) {
+                try {
+                  return Usuario.fromJson(json);
+                } catch (e) {
+                  print('❌ Error parseando usuario: $e');
+                  print('❌ JSON del usuario: $json');
+                  return null;
+                }
+              })
+              .whereType<Usuario>()
+              .toList();
+          
+          print('✅ Usuarios cargados exitosamente: ${usuarios.length}');
+          if (usuarios.isEmpty && results.isNotEmpty) {
+            print('⚠️ ATENCIÓN: Se recibieron ${results.length} usuarios del API pero ninguno pudo parsearse');
+            print('⚠️ Primer usuario (raw): ${results[0]}');
+          }
+          return ApiResponse.success(usuarios);
+        } catch (e, stackTrace) {
+          print('❌ Error parseando lista de usuarios: $e');
+          print('❌ Stack trace: $stackTrace');
+          print('❌ Data recibida: ${response.data}');
+          return ApiResponse.error('Error parseando usuarios: $e');
         }
-
-        final usuarios = data.map((json) => Usuario.fromJson(json)).toList();
-        return ApiResponse.success(usuarios);
       } else {
-        return ApiResponse.error(
-          'Error al cargar usuarios: ${response.statusCode}',
-        );
+        print('❌ Error cargando usuarios: ${response.error}');
+        print('❌ Response success: ${response.success}');
+        print('❌ Response data: ${response.data}');
+        return ApiResponse.error(response.error ?? 'Error desconocido');
       }
     } catch (e) {
+      print('❌ Excepción cargando usuarios: $e');
       return ApiResponse.error('Error de conexión: $e');
     }
   }
 
   Future<ApiResponse<Usuario>> getUsuario(int id) async {
     try {
-      final baseUrl = ApiConfig.getBaseUrl();
-      final response = await http.get(
-        Uri.parse('$baseUrl/api/users/$id/'),
-        headers: await _getHeaders(),
-      );
+      // Replicar EXACTAMENTE la lógica del frontend: usuariosApi.get(id)
+      // Frontend usa: /api/admin/users/${id}/
+      final endpoint = '/api/admin/users/$id/';
+      
+      print('🔵 Llamando endpoint (igual que frontend): $endpoint');
 
-      if (response.statusCode == 200) {
-        final dynamic responseData = json.decode(
-          utf8.decode(response.bodyBytes),
-        );
-        return ApiResponse.success(Usuario.fromJson(responseData));
+      final response = await HttpHelper.get<Map<String, dynamic>>(endpoint);
+
+      if (response.success && response.data != null) {
+        try {
+          final usuario = Usuario.fromJson(response.data!);
+          print('✅ Usuario cargado: ${usuario.username}');
+          return ApiResponse.success(usuario);
+        } catch (e, stackTrace) {
+          print('❌ Error parseando usuario: $e');
+          print('❌ Stack trace: $stackTrace');
+          return ApiResponse.error('Error parseando usuario: $e');
+        }
       } else {
-        return ApiResponse.error(
-          'Error al cargar usuario: ${response.statusCode}',
-        );
+        print('❌ Error cargando usuario: ${response.error}');
+        return ApiResponse.error(response.error ?? 'Error desconocido');
       }
     } catch (e) {
+      print('❌ Excepción cargando usuario: $e');
       return ApiResponse.error('Error de conexión: $e');
     }
   }

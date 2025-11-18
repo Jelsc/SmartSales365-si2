@@ -102,3 +102,7 @@ ssl/
 
 # === Firebase ===
 backend/firebase-credentials.json
+
+# === Configuración Mobile (Credenciales) ===
+mobile/lib/config/stripe_config.dart
+mobile/lib/config/api_url.dart

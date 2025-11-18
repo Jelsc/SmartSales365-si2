@@ -273,6 +273,13 @@ class PagoViewSet(viewsets.GenericViewSet):
                 modulo='PAGOS'
             )
             
+            # Enviar notificación de pago exitoso
+            try:
+                from notifications.utils import notificar_pago_exitoso
+                notificar_pago_exitoso(transaccion)
+            except Exception as e:
+                print(f'⚠️ Error enviando notificación de pago exitoso: {e}')
+            
             # Vaciar el carrito del usuario después de confirmar el pago exitoso
             try:
                 from carrito.models import Carrito
@@ -286,7 +293,15 @@ class PagoViewSet(viewsets.GenericViewSet):
             transaccion.save()
             mensaje = 'Pago en proceso'
         else:
-            transaccion.marcar_como_fallido(f"Estado: {resultado['status']}")
+            error_msg = f"Estado: {resultado['status']}"
+            transaccion.marcar_como_fallido(error_msg)
+            
+            # Enviar notificación de pago fallido
+            try:
+                from notifications.utils import notificar_pago_fallido
+                notificar_pago_fallido(transaccion, error_msg)
+            except Exception as e:
+                print(f'⚠️ Error enviando notificación de pago fallido: {e}')
             mensaje = 'El pago no pudo ser procesado'
         
         # Serializar la transacción actualizada
@@ -348,6 +363,13 @@ def stripe_webhook(request):
                 id_externo=payment_intent_id
             )
             transaccion.marcar_como_exitoso()
+            
+            # Enviar notificación de pago exitoso (desde webhook)
+            try:
+                from notifications.utils import notificar_pago_exitoso
+                notificar_pago_exitoso(transaccion)
+            except Exception as e:
+                print(f'⚠️ Error enviando notificación de pago exitoso (webhook): {e}')
         except TransaccionPago.DoesNotExist:
             pass
     
@@ -362,6 +384,13 @@ def stripe_webhook(request):
                 id_externo=payment_intent_id
             )
             transaccion.marcar_como_fallido(error_message)
+            
+            # Enviar notificación de pago fallido (desde webhook)
+            try:
+                from notifications.utils import notificar_pago_fallido
+                notificar_pago_fallido(transaccion, error_message)
+            except Exception as e:
+                print(f'⚠️ Error enviando notificación de pago fallido (webhook): {e}')
         except TransaccionPago.DoesNotExist:
             pass
     

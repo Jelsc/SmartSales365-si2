@@ -18,7 +18,7 @@ class ReportesService {
   }) async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      final token = prefs.getString('auth_token');
+      final token = prefs.getString('access_token');
 
       if (token == null) {
         throw Exception('No hay token de autenticación');
@@ -95,7 +95,7 @@ class ReportesService {
   Future<List<Map<String, dynamic>>> obtenerHistorial() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      final token = prefs.getString('auth_token');
+      final token = prefs.getString('access_token');
 
       if (token == null) {
         throw Exception('No hay token de autenticación');

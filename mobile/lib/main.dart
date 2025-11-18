@@ -11,6 +11,7 @@ import 'screens/auth/login_screen.dart';
 import 'screens/client/client_home_screen.dart';
 import 'screens/admin/admin_home_screen.dart';
 import 'config/api_config.dart';
+import 'providers/theme_provider.dart';
 
 /// Handler para notificaciones en background (debe estar en nivel superior)
 @pragma('vm:entry-point')
@@ -49,16 +50,38 @@ void main() async {
   runApp(const MyApp());
 }
 
-class MyApp extends StatelessWidget {
+class MyApp extends StatefulWidget {
   const MyApp({super.key});
+
+  // NavigatorKey global para navegación desde notificaciones
+  static final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
+
+  @override
+  State<MyApp> createState() => _MyAppState();
+}
+
+class _MyAppState extends State<MyApp> {
+  final _themeProvider = ThemeProvider();
+
+  @override
+  void initState() {
+    super.initState();
+    // Configurar NavigatorKey en NotificationService
+    NotificationService.setNavigatorKey(MyApp.navigatorKey);
+  }
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'SmartSales365',
-      onGenerateRoute: AppRouter.generateRoute,
-      initialRoute: '/',
-      theme: ThemeData(
+    return ListenableBuilder(
+      listenable: _themeProvider,
+      builder: (context, _) {
+        return MaterialApp(
+          title: 'SmartSales365',
+          navigatorKey: MyApp.navigatorKey,
+          onGenerateRoute: AppRouter.generateRoute,
+          initialRoute: '/',
+          themeMode: _themeProvider.themeMode,
+          theme: ThemeData(
         primarySwatch: Colors.blue,
         primaryColor: Colors.blue,
         colorScheme: ColorScheme.fromSeed(
@@ -112,7 +135,66 @@ class MyApp extends StatelessWidget {
           ),
         ),
       ),
-      home: const AuthWrapper(),
+      darkTheme: ThemeData(
+        primarySwatch: Colors.blue,
+        primaryColor: Colors.blue,
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: Colors.blue,
+          brightness: Brightness.dark,
+        ),
+        useMaterial3: true,
+        appBarTheme: const AppBarTheme(
+          backgroundColor: Color(0xFF1E1E1E),
+          foregroundColor: Colors.white,
+          elevation: 4,
+          shadowColor: Colors.black,
+        ),
+        elevatedButtonTheme: ElevatedButtonThemeData(
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.blue,
+            foregroundColor: Colors.white,
+            elevation: 4,
+            shadowColor: Colors.blue.withOpacity(0.3),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+        ),
+        outlinedButtonTheme: OutlinedButtonThemeData(
+          style: OutlinedButton.styleFrom(
+            foregroundColor: Colors.blue,
+            side: const BorderSide(color: Colors.blue, width: 2),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+        ),
+        inputDecorationTheme: InputDecorationTheme(
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide(color: Colors.grey.shade700),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: const BorderSide(color: Colors.blue, width: 2),
+          ),
+          filled: true,
+          fillColor: Colors.grey.shade800,
+        ),
+        cardTheme: CardThemeData(
+          elevation: 4,
+          shadowColor: Colors.black.withOpacity(0.3),
+          color: Colors.grey.shade900,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+        ),
+        scaffoldBackgroundColor: const Color(0xFF121212),
+        brightness: Brightness.dark,
+      ),
+          home: const AuthWrapper(),
+        );
+      },
     );
   }
 }

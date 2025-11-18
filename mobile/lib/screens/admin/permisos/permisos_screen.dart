@@ -37,6 +37,11 @@ class _PermisosScreenState extends State<PermisosScreen> {
             _permisosPorRol[permiso]!.add(rol.nombre);
           }
         }
+      } else {
+        print('Error cargando permisos: ${response.error}');
+        // Si hay error, mantener las listas vacías
+        _roles = [];
+        _permisosPorRol = {};
       }
     });
   }

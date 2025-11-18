@@ -56,7 +56,7 @@ class _BitacoraScreenState extends State<BitacoraScreen> {
           ),
         ],
       ),
-      drawer: const AdminDrawer(currentRoute: '/admin/bitacora'),
+      drawer: const AdminDrawer(currentRoute: '/api/bitacora'),
       body: Column(
         children: [
           Padding(

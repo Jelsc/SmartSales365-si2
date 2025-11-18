@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../../services/pedidos_service.dart';
+import '../../../services/recordatorios_service.dart';
 
 class OrdersTab extends StatefulWidget {
   final VoidCallback? onVisible;
@@ -14,6 +15,7 @@ class OrdersTab extends StatefulWidget {
 class OrdersTabState extends State<OrdersTab>
     with AutomaticKeepAliveClientMixin {
   final PedidosService _pedidosService = PedidosService();
+  final RecordatoriosService _recordatoriosService = RecordatoriosService();
   List<Pedido> _pedidos = [];
   bool _isLoading = true;
   String? _error;
@@ -24,6 +26,7 @@ class OrdersTabState extends State<OrdersTab>
   @override
   void initState() {
     super.initState();
+    _recordatoriosService.inicializar();
     _cargarPedidos();
   }
 
@@ -75,6 +78,9 @@ class OrdersTabState extends State<OrdersTab>
 
       if (response.results.isEmpty) {
         print('[ORDERS_TAB] ⚠️ No hay pedidos para mostrar');
+      } else {
+        // Programar recordatorios para pedidos pendientes
+        _programarRecordatorios();
       }
     } catch (e) {
       print('[ORDERS_TAB] ❌ Error al cargar pedidos: $e');
@@ -98,6 +104,29 @@ class OrdersTabState extends State<OrdersTab>
         _error = errorMessage;
         _isLoading = false;
       });
+    }
+  }
+
+  Future<void> _programarRecordatorios() async {
+    try {
+      final pedidosPendientes = _pedidos
+          .where((p) => p.estado == 'PENDIENTE' ||
+              p.estado == 'CONFIRMADO' ||
+              p.estado == 'EN_PROCESO')
+          .map((p) => {
+                'id': p.id,
+                'numero_pedido': p.numeroPedido,
+                'estado': p.estado,
+              })
+          .toList();
+
+      if (pedidosPendientes.isNotEmpty) {
+        await _recordatoriosService.programarRecordatorios(pedidosPendientes);
+      } else {
+        await _recordatoriosService.cancelarTodosRecordatorios();
+      }
+    } catch (e) {
+      print('[ORDERS_TAB] Error programando recordatorios: $e');
     }
   }
 

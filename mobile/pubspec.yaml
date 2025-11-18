@@ -59,6 +59,15 @@ dependencies:
   pdf: ^3.11.3
   printing: ^5.14.2
 
+  # Búsqueda por código de barras/QR
+  mobile_scanner: ^5.0.0
+
+  # Compartir productos
+  share_plus: ^7.0.0
+
+  # Galería de imágenes mejorada
+  photo_view: ^0.14.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

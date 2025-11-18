@@ -222,18 +222,29 @@ class ProductoViewSet(viewsets.ModelViewSet):
     
     def create(self, request, *args, **kwargs):
         """Crear producto y registrar en bitácora"""
-        response = super().create(request, *args, **kwargs)
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        
+        # Guardar el usuario creador en el serializer para el signal
+        producto = serializer.save()
+        
+        # Pasar usuario creador al signal
+        producto._creado_por = request.user
+        
+        # Guardar nuevamente para activar el signal
+        producto.save()
         
         # Registrar en bitácora
-        if response.status_code == status.HTTP_201_CREATED:
-            registrar_bitacora(
-                request=request,
-                accion='CREAR',
-                descripcion=f"Producto creado: {response.data.get('nombre')} - SKU: {response.data.get('sku')}",
-                modulo='PRODUCTOS'
-            )
+        registrar_bitacora(
+            request=request,
+            accion='CREAR',
+            descripcion=f"Producto creado: {producto.nombre} - SKU: {producto.sku}",
+            modulo='PRODUCTOS'
+        )
         
-        return response
+        # Retornar respuesta serializada
+        serializer_response = self.get_serializer(producto)
+        return Response(serializer_response.data, status=status.HTTP_201_CREATED)
     
     def update(self, request, *args, **kwargs):
         """Actualizar producto y registrar en bitácora"""

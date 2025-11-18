@@ -51,22 +51,33 @@ class _ProductosListScreenState extends State<ProductosListScreen> {
         busqueda: _searchQuery.isNotEmpty ? _searchQuery : null,
       );
 
-      if (response.success && response.data != null) {
-        _productos = response.data!;
-      }
-
       setState(() {
         _isLoading = false;
+        if (response.success && response.data != null) {
+          _productos = response.data!;
+          _error = null;
+          print('✅ Productos cargados en UI: ${_productos.length}');
+        } else {
+          print('❌ Error cargando productos: ${response.message}');
+          _productos = [];
+          _error = response.message;
+        }
       });
     } catch (e) {
+      print('❌ Excepción cargando productos: $e');
       setState(() {
         _error = 'Error al cargar datos: $e';
         _isLoading = false;
+        _productos = [];
       });
     }
   }
 
   Future<void> _loadProductos() async {
+    setState(() {
+      _isLoading = true;
+    });
+
     final response = await _productoService.getProductos(
       categoria: _selectedCategoriaId?.toString(),
       activo: _filterActivo,
@@ -74,15 +85,18 @@ class _ProductosListScreenState extends State<ProductosListScreen> {
       busqueda: _searchQuery.isNotEmpty ? _searchQuery : null,
     );
 
-    if (response.success && response.data != null) {
-      setState(() {
+    setState(() {
+      _isLoading = false;
+      if (response.success && response.data != null) {
         _productos = response.data!;
-      });
-    } else {
-      setState(() {
-        _error = response.message ?? 'Error al cargar productos';
-      });
-    }
+        _error = null;
+        print('✅ Productos cargados en UI: ${_productos.length}');
+      } else {
+        print('❌ Error cargando productos: ${response.message}');
+        _productos = [];
+        _error = response.message;
+      }
+    });
   }
 
   Future<void> _eliminarProducto(int id) async {

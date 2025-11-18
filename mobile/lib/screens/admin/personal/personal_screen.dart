@@ -28,6 +28,10 @@ class _PersonalScreenState extends State<PersonalScreen> {
       _isLoading = false;
       if (response.success && response.data != null) {
         _personal = response.data!;
+      } else {
+        print('Error cargando personal: ${response.message}');
+        // Si hay error, mantener la lista vacía para mostrar el estado vacío
+        _personal = [];
       }
     });
   }

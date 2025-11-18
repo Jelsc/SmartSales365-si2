@@ -1,175 +1,139 @@
-import 'dart:convert';
-import 'package:http/http.dart' as http;
-import '../config/api_config.dart';
 import 'auth_service.dart';
+import '../utils/http_helper.dart';
 
 /// Servicio para gestionar estadísticas del dashboard admin
 class DashboardAdminService {
   final AuthService _authService = AuthService();
 
   /// Obtener estadísticas generales
+  /// USAR EL MISMO ENDPOINT QUE EL FRONTEND: /api/analytics/dashboard/metricas-generales/
   Future<ApiResponse<DashboardStats>> getEstadisticas() async {
     try {
-      final baseUrl = ApiConfig.getBaseUrl();
-
       final token = await _authService.getToken();
       if (token == null) {
+        print('❌ Dashboard: No hay token de autenticación');
         return ApiResponse(success: false, message: 'No autenticado');
       }
+      
+      print('✅ Dashboard: Token encontrado (${token.length} caracteres)');
+      print('🔵 Llamando endpoint (igual que frontend): /api/analytics/dashboard/metricas-generales/');
 
-      // Obtener datos de múltiples endpoints
-      final productosResponse = await _getCount(
-        '$baseUrl/api/productos/',
-        token,
-      );
-      final conductoresResponse = await _getCount(
-        '$baseUrl/api/conductores/',
-        token,
-      );
-      final personalResponse = await _getCount('$baseUrl/api/personal/', token);
-      final usuariosResponse = await _getCount('$baseUrl/api/users/', token);
-      final pagosResponse = await _getVentas(baseUrl, token);
-
-      final stats = DashboardStats(
-        totalProductos: productosResponse,
-        totalConductores: conductoresResponse,
-        totalPersonal: personalResponse,
-        totalUsuarios: usuariosResponse,
-        totalVentas: pagosResponse['count'] ?? 0,
-        ventasHoy: pagosResponse['hoy'] ?? 0,
-        ingresosTotal: pagosResponse['total'] ?? 0.0,
-        ingresosMes: pagosResponse['mes'] ?? 0.0,
+      // USAR EL MISMO ENDPOINT QUE EL FRONTEND
+      final response = await HttpHelper.get<Map<String, dynamic>>(
+        '/api/analytics/dashboard/metricas-generales/',
       );
 
-      return ApiResponse(
-        success: true,
-        data: stats,
-        message: 'Estadísticas obtenidas correctamente',
-      );
+      if (response.success && response.data != null) {
+        try {
+          final data = response.data!;
+          
+          print('✅ Dashboard: Datos recibidos del backend');
+          print('   Total productos: ${data['total_productos'] ?? 0}');
+          print('   Total conductores: ${data['total_conductores'] ?? 0}');
+          print('   Total personal: ${data['total_personal'] ?? 0}');
+          print('   Total usuarios: ${data['total_usuarios'] ?? 0}');
+          print('   Total ventas: ${data['total_ventas'] ?? 0}');
+
+          final stats = DashboardStats(
+            totalProductos: data['total_productos'] ?? 0,
+            totalConductores: data['total_conductores'] ?? 0,
+            totalPersonal: data['total_personal'] ?? 0,
+            totalUsuarios: data['total_usuarios'] ?? 0,
+            totalVentas: data['total_ventas'] ?? 0,
+            ventasHoy: data['ventas_hoy'] ?? 0,
+            ingresosTotal: (data['ingresos_total'] ?? 0.0).toDouble(),
+            ingresosMes: (data['ingresos_mes'] ?? 0.0).toDouble(),
+          );
+
+          return ApiResponse(
+            success: true,
+            data: stats,
+            message: 'Estadísticas obtenidas correctamente',
+          );
+        } catch (e, stackTrace) {
+          print('❌ Error parseando estadísticas: $e');
+          print('❌ Stack trace: $stackTrace');
+          print('❌ Data recibida: ${response.data}');
+          return ApiResponse(
+            success: false,
+            message: 'Error parseando estadísticas: $e',
+          );
+        }
+      } else {
+        print('❌ Error obteniendo estadísticas: ${response.error}');
+        return ApiResponse(
+          success: false,
+          message: response.error ?? 'Error desconocido',
+        );
+      }
     } catch (e) {
+      print('❌ Excepción obteniendo estadísticas: $e');
       return ApiResponse(success: false, message: 'Error: $e');
     }
   }
 
-  Future<int> _getCount(String url, String token) async {
-    try {
-      final response = await http.get(
-        Uri.parse(url),
-        headers: {
-          'Authorization': 'Bearer $token',
-          'Content-Type': 'application/json',
-        },
-      );
-
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        if (data is Map && data.containsKey('count')) {
-          return data['count'] as int;
-        } else if (data is List) {
-          return data.length;
-        }
-      }
-      return 0;
-    } catch (e) {
-      return 0;
-    }
-  }
-
-  Future<Map<String, dynamic>> _getVentas(String baseUrl, String token) async {
-    try {
-      final response = await http.get(
-        Uri.parse('$baseUrl/api/payments/pagos/'),
-        headers: {
-          'Authorization': 'Bearer $token',
-          'Content-Type': 'application/json',
-        },
-      );
-
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        final List<dynamic> pagos = data['results'] ?? data;
-
-        final now = DateTime.now();
-        final hoy = pagos.where((p) {
-          final fecha = DateTime.parse(p['created_at']);
-          return fecha.year == now.year &&
-              fecha.month == now.month &&
-              fecha.day == now.day;
-        }).length;
-
-        final mes = pagos.where((p) {
-          final fecha = DateTime.parse(p['created_at']);
-          return fecha.year == now.year && fecha.month == now.month;
-        }).length;
-
-        double total = 0.0;
-        double totalMes = 0.0;
-
-        for (var pago in pagos) {
-          final monto = (pago['monto'] ?? 0).toDouble();
-          total += monto;
-
-          final fecha = DateTime.parse(pago['created_at']);
-          if (fecha.year == now.year && fecha.month == now.month) {
-            totalMes += monto;
-          }
-        }
-
-        return {
-          'count': pagos.length,
-          'hoy': hoy,
-          'mes': mes,
-          'total': total,
-          'totalMes': totalMes,
-        };
-      }
-      return {'count': 0, 'hoy': 0, 'mes': 0, 'total': 0.0, 'totalMes': 0.0};
-    } catch (e) {
-      return {'count': 0, 'hoy': 0, 'mes': 0, 'total': 0.0, 'totalMes': 0.0};
-    }
-  }
-
   /// Obtener productos con bajo stock
+  /// USAR EL MISMO ENDPOINT QUE EL FRONTEND: /api/analytics/dashboard/productos-bajo-stock/
   Future<ApiResponse<List<ProductoBajoStock>>> getProductosBajoStock() async {
     try {
-      final baseUrl = ApiConfig.getBaseUrl();
-      final url = '$baseUrl/api/productos/?activo=true';
-
-      final token = await _authService.getToken();
-      if (token == null) {
-        return ApiResponse(success: false, message: 'No autenticado');
-      }
-
-      final response = await http.get(
-        Uri.parse(url),
-        headers: {
-          'Authorization': 'Bearer $token',
-          'Content-Type': 'application/json',
-        },
+      print('🔵 Llamando endpoint (igual que frontend): /api/analytics/dashboard/productos-bajo-stock/?umbral=10');
+      
+      // USAR EL MISMO ENDPOINT QUE EL FRONTEND
+      final response = await HttpHelper.get<Map<String, dynamic>>(
+        '/api/analytics/dashboard/productos-bajo-stock/?umbral=10',
       );
 
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        final List<dynamic> results = data['results'] ?? data;
+      if (response.success && response.data != null) {
+        try {
+          final data = response.data!;
+          
+          // El frontend devuelve: { productos: [...], total: number, umbral: number }
+          List<dynamic> productosJson;
+          if (data.containsKey('productos')) {
+            productosJson = data['productos'] as List<dynamic>;
+            print('✅ Respuesta: ${productosJson.length} productos bajo stock (total: ${data['total'] ?? 'N/A'})');
+          } else {
+            productosJson = [];
+            print('⚠️ Formato de respuesta desconocido (no tiene productos)');
+          }
+          
+          final productosBajoStock = productosJson
+              .map((json) {
+                try {
+                  return ProductoBajoStock.fromJson(json);
+                } catch (e) {
+                  print('❌ Error parseando producto bajo stock: $e');
+                  print('❌ JSON: $json');
+                  return null;
+                }
+              })
+              .whereType<ProductoBajoStock>()
+              .toList();
 
-        // Filtrar productos con stock <= 10
-        final productosBajoStock = results
-            .where((p) => (p['stock'] ?? 0) <= 10)
-            .map((json) => ProductoBajoStock.fromJson(json))
-            .toList();
-
-        return ApiResponse(
-          success: true,
-          data: productosBajoStock,
-          message: 'Productos con bajo stock obtenidos',
-        );
+          print('✅ Productos bajo stock parseados: ${productosBajoStock.length}');
+          return ApiResponse(
+            success: true,
+            data: productosBajoStock,
+            message: 'Productos con bajo stock obtenidos',
+          );
+        } catch (e, stackTrace) {
+          print('❌ Error parseando productos bajo stock: $e');
+          print('❌ Stack trace: $stackTrace');
+          print('❌ Data recibida: ${response.data}');
+          return ApiResponse(
+            success: false,
+            message: 'Error parseando productos: $e',
+          );
+        }
       } else {
+        print('⚠️ Error obteniendo productos bajo stock: ${response.error}');
         return ApiResponse(
           success: false,
-          message: 'Error al obtener productos',
+          message: response.error ?? 'Error al obtener productos',
         );
       }
     } catch (e) {
+      print('❌ Excepción obteniendo productos bajo stock: $e');
       return ApiResponse(success: false, message: 'Error: $e');
     }
   }
@@ -177,41 +141,44 @@ class DashboardAdminService {
   /// Obtener actividades recientes
   Future<ApiResponse<List<ActividadReciente>>> getActividadesRecientes() async {
     try {
-      final baseUrl = ApiConfig.getBaseUrl();
-      final url = '$baseUrl/api/bitacora/?ordering=-fecha_hora&page_size=10';
-
-      final token = await _authService.getToken();
-      if (token == null) {
-        return ApiResponse(success: false, message: 'No autenticado');
-      }
-
-      final response = await http.get(
-        Uri.parse(url),
-        headers: {
-          'Authorization': 'Bearer $token',
-          'Content-Type': 'application/json',
-        },
+      // Frontend puede usar formato paginado: { count, next, previous, results }
+      final response = await HttpHelper.get<Map<String, dynamic>>(
+        '/api/bitacora/',
+        queryParams: {'ordering': '-fecha_hora', 'page_size': '10'},
       );
 
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        final List<dynamic> results = data['results'] ?? data;
+      if (response.success && response.data != null) {
+        final data = response.data!;
+        
+        // Manejar formato paginado
+        List<dynamic> results;
+        if (data.containsKey('results')) {
+          // Formato paginado estándar
+          results = data['results'] as List<dynamic>;
+        } else {
+          results = [];
+          print('⚠️ Formato de respuesta desconocido (no tiene results)');
+        }
+        
         final actividades = results
             .map((json) => ActividadReciente.fromJson(json))
             .toList();
 
+        print('✅ Actividades recientes: ${actividades.length}');
         return ApiResponse(
           success: true,
           data: actividades,
           message: 'Actividades recientes obtenidas',
         );
       } else {
+        print('⚠️ Error obteniendo actividades: ${response.error}');
         return ApiResponse(
           success: false,
-          message: 'Error al obtener actividades',
+          message: response.error ?? 'Error al obtener actividades',
         );
       }
     } catch (e) {
+      print('❌ Excepción obteniendo actividades: $e');
       return ApiResponse(success: false, message: 'Error: $e');
     }
   }
@@ -255,11 +222,22 @@ class ProductoBajoStock {
   });
 
   factory ProductoBajoStock.fromJson(Map<String, dynamic> json) {
+    // El endpoint de analytics puede devolver categoria como objeto o string
+    String categoriaNombre;
+    if (json['categoria'] is Map) {
+      final catObj = json['categoria'] as Map<String, dynamic>;
+      categoriaNombre = catObj['nombre'] ?? '';
+    } else {
+      categoriaNombre = json['categoria_nombre'] ?? 
+                       (json['categoria'] is String ? json['categoria'] : '') ?? 
+                       '';
+    }
+    
     return ProductoBajoStock(
       id: json['id'] ?? 0,
       nombre: json['nombre'] ?? '',
-      stock: json['stock'] ?? 0,
-      categoria: json['categoria_nombre'] ?? json['categoria'] ?? '',
+      stock: json['stock'] ?? json['stock_actual'] ?? 0,
+      categoria: categoriaNombre,
     );
   }
 }
@@ -296,8 +274,8 @@ class ActividadReciente {
 /// Respuesta genérica de API
 class ApiResponse<T> {
   final bool success;
-  final T? data;
   final String? message;
+  final T? data;
 
-  ApiResponse({required this.success, this.data, this.message});
+  ApiResponse({required this.success, this.message, this.data});
 }

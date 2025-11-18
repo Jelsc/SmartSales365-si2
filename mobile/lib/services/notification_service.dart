@@ -1,11 +1,14 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import '../navigation/app_router.dart';
+import '../screens/client/client_home_screen.dart';
 
 /// Servicio centralizado para gestión de notificaciones push
 /// Maneja FCM (Firebase Cloud Messaging) y notificaciones locales
@@ -23,8 +26,16 @@ class NotificationService {
   Stream<RemoteMessage> get notificationStream =>
       _notificationController.stream;
 
+  // NavigatorKey para navegación desde notificaciones
+  static GlobalKey<NavigatorState>? navigatorKey;
+
   String? _fcmToken;
   String? get fcmToken => _fcmToken;
+
+  /// Establece la clave de navegación global
+  static void setNavigatorKey(GlobalKey<NavigatorState> key) {
+    navigatorKey = key;
+  }
 
   /// Inicializa el servicio de notificaciones
   Future<void> initialize() async {
@@ -181,7 +192,7 @@ class NotificationService {
     // Emitir al stream
     _notificationController.add(message);
 
-    // Aquí puedes navegar a una pantalla específica según message.data
+    // Navegar a una pantalla específica según message.data
     _handleNotificationNavigation(message);
   }
 
@@ -269,19 +280,167 @@ class NotificationService {
   /// Maneja cuando se toca una notificación local
   void _onNotificationTapped(NotificationResponse response) {
     print('👆 Notificación tocada: ${response.payload}');
-    // Aquí puedes implementar navegación basada en el payload
+    if (response.payload != null && response.payload!.isNotEmpty) {
+      try {
+        // Parsear el payload que viene como string de mapa
+        final data = jsonDecode(response.payload!);
+        if (data is Map<String, dynamic>) {
+          // Crear un RemoteMessage simulado para usar la misma lógica de navegación
+          final message = RemoteMessage(
+            notification: null,
+            data: data,
+          );
+          _handleNotificationNavigation(message);
+        }
+      } catch (e) {
+        print('⚠️ Error parseando payload de notificación local: $e');
+      }
+    }
   }
 
   /// Maneja la navegación según el tipo de notificación
   void _handleNotificationNavigation(RemoteMessage message) {
-    final tipo = message.data['tipo'];
-    print('🧭 Navegando según tipo: $tipo');
+    if (navigatorKey?.currentContext == null) {
+      print('⚠️ NavigatorKey no está disponible para navegación');
+      return;
+    }
 
-    // TODO: Implementar navegación según el tipo de notificación
-    // Ejemplos:
-    // - 'nuevo_pedido' -> Navegar a pantalla de pedidos
-    // - 'promocion' -> Navegar a pantalla de promociones
-    // - 'mensaje' -> Navegar a chat
+    final context = navigatorKey!.currentContext!;
+    final tipo = message.data['tipo'] as String?;
+    final screen = message.data['screen'] as String?;
+    final action = message.data['action'] as String?;
+
+    print('🧭 Navegando según tipo: $tipo, screen: $screen, action: $action');
+
+    // Si hay una ruta de pantalla específica, usarla
+    if (screen != null) {
+      try {
+        switch (tipo) {
+          case 'pedido':
+            if (screen == 'pedidos') {
+              // Navegar a ClientHomeScreen con tab de pedidos (index 3)
+              _navigateToClientHome(context, initialTabIndex: 3);
+              print('✅ Navegación a pedidos del cliente');
+              return;
+            } else if (screen == 'admin_pedidos') {
+              Navigator.of(context).pushNamed('/admin/pedidos');
+              print('✅ Navegación a pedidos admin');
+              return;
+            }
+            break;
+          case 'info':
+          case 'promo':
+            if (screen == 'productos') {
+              // Navegar a ClientHomeScreen con tab de productos (index 1)
+              _navigateToClientHome(context, initialTabIndex: 1);
+              print('✅ Navegación a productos');
+              return;
+            }
+            break;
+          case 'alerta':
+            if (screen == 'admin_productos' || screen == 'inventario') {
+              Navigator.of(context).pushNamed('/admin/productos');
+              print('✅ Navegación a productos admin');
+              return;
+            }
+            break;
+          case 'sistema':
+            // Notificaciones del sistema (como login) no necesitan navegación
+            return;
+          default:
+            // Si no hay tipo específico pero hay screen, intentar navegar
+            if (screen.startsWith('/')) {
+              Navigator.of(context).pushNamed(screen);
+              print('✅ Navegación a: $screen');
+              return;
+            }
+            break;
+        }
+      } catch (e) {
+        print('⚠️ Error en navegación: $e');
+      }
+    }
+  }
+
+  /// Navega a ClientHomeScreen con un tab específico
+  /// Usa importación tardía para evitar dependencia circular
+  void _navigateToClientHome(BuildContext context, {int? initialTabIndex}) {
+    try {
+      // Importar ClientHomeScreen dinámicamente para evitar dependencia circular
+      // Usar una referencia a la ruta que luego se resuelve
+      _navigateToClientHomeWithTab(context, initialTabIndex);
+    } catch (e) {
+      print('⚠️ Error navegando a ClientHomeScreen: $e');
+      // Fallback: navegar al home genérico
+      Navigator.of(context).pushNamed(AppRouter.home);
+    }
+  }
+
+  /// Helper para navegar a ClientHomeScreen con tab específico
+  void _navigateToClientHomeWithTab(BuildContext context, int? tabIndex) {
+    try {
+      // Usar un callback para crear el widget cuando se necesite
+      // Esto evita importación directa y dependencia circular
+      final Widget clientHomeScreen = _buildClientHomeScreen(tabIndex);
+      
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (_) => clientHomeScreen),
+        (route) => false,
+      );
+      print('✅ Navegación a ClientHomeScreen con tab $tabIndex');
+    } catch (e) {
+      print('⚠️ Error navegando a ClientHomeScreen con tab: $e');
+      // Fallback: navegar usando el router sin tab específico
+      Navigator.of(context).pushNamedAndRemoveUntil(
+        AppRouter.home,
+        (route) => false,
+      );
+    }
+  }
+
+  /// Construye ClientHomeScreen con el tab específico
+  Widget _buildClientHomeScreen(int? tabIndex) {
+    // Crear instancia de ClientHomeScreen con el tabIndex
+    return ClientHomeScreen(initialTabIndex: tabIndex);
+  }
+
+  /// Obtiene el tipo de dispositivo dinámicamente
+  String _getDeviceType() {
+    if (Platform.isAndroid) {
+      return 'android';
+    } else if (Platform.isIOS) {
+      return 'ios';
+    } else {
+      return 'web';
+    }
+  }
+
+  /// Obtiene un nombre descriptivo del dispositivo
+  Future<String> _getDeviceName() async {
+    try {
+      // Intentar obtener el modelo del dispositivo desde SharedPreferences
+      final prefs = await SharedPreferences.getInstance();
+      String? deviceName = prefs.getString('device_name');
+      
+      if (deviceName != null && deviceName.isNotEmpty) {
+        return deviceName;
+      }
+
+      // Si no hay nombre guardado, usar uno genérico según la plataforma
+      final deviceModel = Platform.isAndroid 
+          ? 'Android Device'
+          : Platform.isIOS 
+              ? 'iOS Device'
+              : 'Web Device';
+      
+      // Guardar para futuras referencias
+      await prefs.setString('device_name', deviceModel);
+      
+      return deviceModel;
+    } catch (e) {
+      print('⚠️ Error obteniendo nombre del dispositivo: $e');
+      return 'Mobile Device';
+    }
   }
 
   /// Envía el token FCM al backend
@@ -294,6 +453,9 @@ class NotificationService {
     try {
       print('📤 Enviando token FCM al backend...');
 
+      final deviceType = _getDeviceType();
+      final deviceName = await _getDeviceName();
+
       final response = await http.post(
         Uri.parse('$apiUrl/api/notifications/tokens/register/'),
         headers: {
@@ -302,8 +464,8 @@ class NotificationService {
         },
         body: jsonEncode({
           'token': _fcmToken,
-          'device_type': 'android', // TODO: Detectar iOS/Android dinámicamente
-          'device_name': 'Mobile Device', // TODO: Obtener nombre real del dispositivo
+          'device_type': deviceType,
+          'device_name': deviceName,
         }),
       );
 

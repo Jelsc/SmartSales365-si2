@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../services/auth_service.dart';
+import '../../../providers/theme_provider.dart';
 import '../../auth/login_screen.dart';
 
 class ProfileTab extends StatefulWidget {
@@ -11,6 +12,7 @@ class ProfileTab extends StatefulWidget {
 
 class _ProfileTabState extends State<ProfileTab> {
   final _authService = AuthService();
+  final _themeProvider = ThemeProvider();
   User? _currentUser;
   bool _isLoading = true;
 
@@ -18,6 +20,19 @@ class _ProfileTabState extends State<ProfileTab> {
   void initState() {
     super.initState();
     _loadUserData();
+    _themeProvider.addListener(_onThemeChanged);
+  }
+
+  @override
+  void dispose() {
+    _themeProvider.removeListener(_onThemeChanged);
+    super.dispose();
+  }
+
+  void _onThemeChanged() {
+    if (mounted) {
+      setState(() {});
+    }
   }
 
   Future<void> _loadUserData() async {
@@ -187,8 +202,11 @@ class _ProfileTabState extends State<ProfileTab> {
                     _buildMenuItem(
                       icon: Icons.dark_mode,
                       title: 'Tema',
-                      subtitle: 'Claro',
-                      onTap: () => _showComingSoon('Cambiar Tema'),
+                      subtitle: _themeProvider.isDarkMode ? 'Oscuro' : 'Claro',
+                      onTap: () async {
+                        await _themeProvider.toggleTheme();
+                        setState(() {});
+                      },
                     ),
                   ],
                 ),

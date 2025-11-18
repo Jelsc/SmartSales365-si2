@@ -9,90 +9,71 @@ class Pedido(models.Model):
     """
     Pedido/Orden de compra
     """
+
     ESTADO_CHOICES = [
-        ('PENDIENTE', 'Pendiente'),
-        ('PAGADO', 'Pagado'),
-        ('PROCESANDO', 'Procesando'),
-        ('ENVIADO', 'Enviado'),
-        ('ENTREGADO', 'Entregado'),
-        ('CANCELADO', 'Cancelado'),
-        ('REEMBOLSADO', 'Reembolsado'),
+        ("PENDIENTE", "Pendiente"),
+        ("PAGADO", "Pagado"),
+        ("PROCESANDO", "Procesando"),
+        ("ENVIADO", "Enviado"),
+        ("ENTREGADO", "Entregado"),
+        ("CANCELADO", "Cancelado"),
+        ("REEMBOLSADO", "Reembolsado"),
     ]
 
     numero_pedido = models.CharField(
-        max_length=50,
-        unique=True,
-        editable=False,
-        verbose_name='Número de pedido'
+        max_length=50, unique=True, editable=False, verbose_name="Número de pedido"
     )
     usuario = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
-        related_name='pedidos',
-        verbose_name='Cliente'
+        related_name="pedidos",
+        verbose_name="Cliente",
     )
     estado = models.CharField(
         max_length=20,
         choices=ESTADO_CHOICES,
-        default='PENDIENTE',
-        verbose_name='Estado'
+        default="PENDIENTE",
+        verbose_name="Estado",
     )
-    
+
     # Montos
     subtotal = models.DecimalField(
-        max_digits=10,
-        decimal_places=2,
-        verbose_name='Subtotal'
+        max_digits=10, decimal_places=2, verbose_name="Subtotal"
     )
     descuento = models.DecimalField(
-        max_digits=10,
-        decimal_places=2,
-        default=0,
-        verbose_name='Descuento'
+        max_digits=10, decimal_places=2, default=0, verbose_name="Descuento"
     )
     impuestos = models.DecimalField(
-        max_digits=10,
-        decimal_places=2,
-        default=0,
-        verbose_name='Impuestos'
+        max_digits=10, decimal_places=2, default=0, verbose_name="Impuestos"
     )
     costo_envio = models.DecimalField(
-        max_digits=10,
-        decimal_places=2,
-        default=0,
-        verbose_name='Costo de envío'
+        max_digits=10, decimal_places=2, default=0, verbose_name="Costo de envío"
     )
-    total = models.DecimalField(
-        max_digits=10,
-        decimal_places=2,
-        verbose_name='Total'
-    )
-    
+    total = models.DecimalField(max_digits=10, decimal_places=2, verbose_name="Total")
+
     # Notas
-    notas_cliente = models.TextField(
-        blank=True,
-        verbose_name='Notas del cliente'
-    )
-    notas_internas = models.TextField(
-        blank=True,
-        verbose_name='Notas internas'
-    )
-    
+    notas_cliente = models.TextField(blank=True, verbose_name="Notas del cliente")
+    notas_internas = models.TextField(blank=True, verbose_name="Notas internas")
+
     # Fechas
-    creado = models.DateTimeField(auto_now_add=True, verbose_name='Fecha de creación')
-    actualizado = models.DateTimeField(auto_now=True, verbose_name='Última actualización')
-    pagado_en = models.DateTimeField(null=True, blank=True, verbose_name='Pagado el')
-    enviado_en = models.DateTimeField(null=True, blank=True, verbose_name='Enviado el')
-    entregado_en = models.DateTimeField(null=True, blank=True, verbose_name='Entregado el')
+    creado = models.DateTimeField(auto_now_add=True, verbose_name="Fecha de creación")
+    actualizado = models.DateTimeField(
+        auto_now=True, verbose_name="Última actualización"
+    )
+    pagado_en = models.DateTimeField(null=True, blank=True, verbose_name="Pagado el")
+    enviado_en = models.DateTimeField(null=True, blank=True, verbose_name="Enviado el")
+    entregado_en = models.DateTimeField(
+        null=True, blank=True, verbose_name="Entregado el"
+    )
 
     class Meta:
-        verbose_name = 'Pedido'
-        verbose_name_plural = 'Pedidos'
-        ordering = ['-creado']
+        verbose_name = "Pedido"
+        verbose_name_plural = "Pedidos"
+        ordering = ["-creado"]
         indexes = [
-            models.Index(fields=['numero_pedido']),
-            models.Index(fields=['usuario', '-creado']),
-            models.Index(fields=['estado']),
+            models.Index(fields=["numero_pedido"]),
+            models.Index(fields=["usuario", "-creado"]),
+            models.Index(fields=["estado"]),
         ]
 
     def __str__(self):
@@ -101,7 +82,7 @@ class Pedido(models.Model):
     def save(self, *args, **kwargs):
         if not self.numero_pedido:
             # Generar número de pedido único
-            fecha = timezone.now().strftime('%Y%m%d')
+            fecha = timezone.now().strftime("%Y%m%d")
             uid = str(uuid.uuid4())[:8].upper()
             self.numero_pedido = f"ORD-{fecha}-{uid}"
         super().save(*args, **kwargs)
@@ -110,10 +91,11 @@ class Pedido(models.Model):
         """Actualizar estado del pedido con fechas automáticas y gestión de stock"""
         estado_anterior = self.estado
         self.estado = nuevo_estado
-        
+
         # Reducir stock cuando se marca como PAGADO
-        if nuevo_estado == 'PAGADO' and estado_anterior != 'PAGADO':
+        if nuevo_estado == "PAGADO" and estado_anterior != "PAGADO":
             from django.db import transaction
+
             with transaction.atomic():
                 self.pagado_en = timezone.now()
                 # Reducir stock de cada producto
@@ -121,84 +103,82 @@ class Pedido(models.Model):
                     producto = item.producto
                     if producto.stock >= item.cantidad:
                         producto.stock -= item.cantidad
-                        producto.save(update_fields=['stock'])
+                        producto.save(update_fields=["stock"])
                     else:
                         raise ValueError(
-                            f'Stock insuficiente para {producto.nombre}. '
-                            f'Disponible: {producto.stock}, Requerido: {item.cantidad}'
+                            f"Stock insuficiente para {producto.nombre}. "
+                            f"Disponible: {producto.stock}, Requerido: {item.cantidad}"
                         )
-        
+
         # Restaurar stock si se cancela o reembolsa un pedido que estaba pagado
-        elif nuevo_estado in ['CANCELADO', 'REEMBOLSADO'] and estado_anterior == 'PAGADO':
+        elif (
+            nuevo_estado in ["CANCELADO", "REEMBOLSADO"] and estado_anterior == "PAGADO"
+        ):
             from django.db import transaction
+
             with transaction.atomic():
                 # Restaurar stock de cada producto
                 for item in self.items.select_for_update():
                     producto = item.producto
                     producto.stock += item.cantidad
-                    producto.save(update_fields=['stock'])
-        
+                    producto.save(update_fields=["stock"])
+
         # Actualizar fechas según el estado
-        if nuevo_estado == 'ENVIADO' and not self.enviado_en:
+        if nuevo_estado == "ENVIADO" and not self.enviado_en:
             self.enviado_en = timezone.now()
-        elif nuevo_estado == 'ENTREGADO' and not self.entregado_en:
+        elif nuevo_estado == "ENTREGADO" and not self.entregado_en:
             self.entregado_en = timezone.now()
-        
+
         self.save()
+
+        # Enviar notificación de cambio de estado
+        if estado_anterior != nuevo_estado:
+            try:
+                from notifications.utils import notificar_cambio_estado_pedido
+
+                notificar_cambio_estado_pedido(self, estado_anterior, nuevo_estado)
+            except Exception as e:
+                # No fallar la actualización si falla la notificación
+                print(f"⚠️ Error enviando notificación de cambio de estado: {e}")
 
 
 class ItemPedido(models.Model):
     """
     Item individual en un pedido
     """
+
     pedido = models.ForeignKey(
-        Pedido,
-        on_delete=models.CASCADE,
-        related_name='items',
-        verbose_name='Pedido'
+        Pedido, on_delete=models.CASCADE, related_name="items", verbose_name="Pedido"
     )
     producto = models.ForeignKey(
         Producto,
         on_delete=models.PROTECT,
-        related_name='items_pedido',
-        verbose_name='Producto'
+        related_name="items_pedido",
+        verbose_name="Producto",
     )
-    
+
     # Información guardada en el momento de la compra
     nombre_producto = models.CharField(
-        max_length=255,
-        verbose_name='Nombre del producto'
+        max_length=255, verbose_name="Nombre del producto"
     )
-    sku = models.CharField(
-        max_length=100,
-        blank=True,
-        verbose_name='SKU'
-    )
+    sku = models.CharField(max_length=100, blank=True, verbose_name="SKU")
     precio_unitario = models.DecimalField(
-        max_digits=10,
-        decimal_places=2,
-        verbose_name='Precio unitario'
+        max_digits=10, decimal_places=2, verbose_name="Precio unitario"
     )
-    cantidad = models.PositiveIntegerField(
-        verbose_name='Cantidad'
-    )
+    cantidad = models.PositiveIntegerField(verbose_name="Cantidad")
     subtotal = models.DecimalField(
-        max_digits=10,
-        decimal_places=2,
-        verbose_name='Subtotal'
+        max_digits=10, decimal_places=2, verbose_name="Subtotal"
     )
-    
+
     # Variante info (guardado como JSON si es necesario)
     variante_info = models.JSONField(
-        null=True,
-        blank=True,
-        verbose_name='Información de variante'
+        null=True, blank=True, verbose_name="Información de variante"
     )
 
     class Meta:
-        verbose_name = 'Item de Pedido'
-        verbose_name_plural = 'Items de Pedido'
-        ordering = ['id']
+        verbose_name = "Item de Pedido"
+        verbose_name_plural = "Items de Pedido"
+        ordering = ["id"]
 
     def __str__(self):
         return f"{self.cantidad}x {self.nombre_producto}"
@@ -218,49 +198,27 @@ class DireccionEnvio(models.Model):
     """
     Dirección de envío del pedido
     """
+
     pedido = models.OneToOneField(
         Pedido,
         on_delete=models.CASCADE,
-        related_name='direccion_envio',
-        verbose_name='Pedido'
+        related_name="direccion_envio",
+        verbose_name="Pedido",
     )
-    nombre_completo = models.CharField(
-        max_length=255,
-        verbose_name='Nombre completo'
-    )
-    telefono = models.CharField(
-        max_length=20,
-        verbose_name='Teléfono'
-    )
-    email = models.EmailField(
-        verbose_name='Email'
-    )
-    direccion = models.CharField(
-        max_length=255,
-        verbose_name='Dirección'
-    )
-    referencia = models.CharField(
-        max_length=255,
-        blank=True,
-        verbose_name='Referencia'
-    )
-    ciudad = models.CharField(
-        max_length=100,
-        verbose_name='Ciudad'
-    )
-    departamento = models.CharField(
-        max_length=100,
-        verbose_name='Departamento'
-    )
+    nombre_completo = models.CharField(max_length=255, verbose_name="Nombre completo")
+    telefono = models.CharField(max_length=20, verbose_name="Teléfono")
+    email = models.EmailField(verbose_name="Email")
+    direccion = models.CharField(max_length=255, verbose_name="Dirección")
+    referencia = models.CharField(max_length=255, blank=True, verbose_name="Referencia")
+    ciudad = models.CharField(max_length=100, verbose_name="Ciudad")
+    departamento = models.CharField(max_length=100, verbose_name="Departamento")
     codigo_postal = models.CharField(
-        max_length=20,
-        blank=True,
-        verbose_name='Código postal'
+        max_length=20, blank=True, verbose_name="Código postal"
     )
 
     class Meta:
-        verbose_name = 'Dirección de Envío'
-        verbose_name_plural = 'Direcciones de Envío'
+        verbose_name = "Dirección de Envío"
+        verbose_name_plural = "Direcciones de Envío"
 
     def __str__(self):
         return f"{self.nombre_completo} - {self.ciudad}, {self.departamento}"

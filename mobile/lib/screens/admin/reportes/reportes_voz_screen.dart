@@ -4,6 +4,7 @@ import 'package:permission_handler/permission_handler.dart';
 import 'dart:io';
 import '../../../services/reportes_service.dart';
 import 'package:open_filex/open_filex.dart';
+import '../admin_drawer.dart';
 
 class ReportesVozScreen extends StatefulWidget {
   const ReportesVozScreen({Key? key}) : super(key: key);
@@ -292,6 +293,7 @@ class _ReportesVozScreenState extends State<ReportesVozScreen>
         title: const Text('Reportes con Voz'),
         backgroundColor: const Color(0xFF1E40AF),
       ),
+      drawer: const AdminDrawer(currentRoute: '/admin/reportes'),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Column(

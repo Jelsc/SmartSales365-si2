@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:share_plus/share_plus.dart';
+import 'package:photo_view/photo_view.dart';
+import 'package:photo_view/photo_view_gallery.dart';
 import '../../../services/productos_service.dart';
 import '../../../services/carrito_service.dart';
 import '../../../services/favoritos_service.dart';
 import '../../../services/comparacion_service.dart';
-import '../producto_comparacion_screen.dart';
+import '../barcode_scanner_screen.dart';
 
 class ProductsTab extends StatefulWidget {
   const ProductsTab({super.key});
@@ -23,6 +26,8 @@ class _ProductsTabState extends State<ProductsTab> {
   List<Producto> _productos = [];
   List<int> _favoritos = [];
   List<int> _productosComparacion = [];
+  List<String> _historialBusquedas = [];
+  List<Map<String, dynamic>> _filtrosGuardados = [];
   bool _isLoading = true;
   bool _isLoadingMore = false;
   String? _selectedCategoryId;
@@ -37,7 +42,46 @@ class _ProductsTabState extends State<ProductsTab> {
     _cargarDatos();
     _cargarFavoritos();
     _cargarProductosComparacion();
+    _cargarHistorialBusquedas();
+    _cargarFiltrosGuardados();
     _scrollController.addListener(_onScroll);
+  }
+
+  Future<void> _cargarHistorialBusquedas() async {
+    final historial = await _productosService.getBusquedasRecientes();
+    if (mounted) {
+      setState(() => _historialBusquedas = historial);
+    }
+  }
+
+  Future<void> _cargarFiltrosGuardados() async {
+    final filtros = await _productosService.getFiltrosGuardados();
+    if (mounted) {
+      setState(() => _filtrosGuardados = filtros);
+    }
+  }
+
+  Future<void> _guardarFiltroActual() async {
+    await _productosService.guardarFiltro(
+      categoriaId: _selectedCategoryId,
+    );
+    await _cargarFiltrosGuardados();
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Filtro guardado'),
+          backgroundColor: Colors.green,
+          duration: Duration(seconds: 2),
+        ),
+      );
+    }
+  }
+
+  Future<void> _aplicarFiltroGuardado(Map<String, dynamic> filtro) async {
+    setState(() {
+      _selectedCategoryId = filtro['categoriaId']?.toString();
+    });
+    await _cargarDatos();
   }
 
   Future<void> _cargarProductosComparacion() async {
@@ -65,6 +109,7 @@ class _ProductsTabState extends State<ProductsTab> {
     setState(() => _isLoading = true);
     try {
       final categorias = await _productosService.getCategorias();
+      ProductosService.setCategoriasCache(categorias);
       final response = await _productosService.getProductos(
         page: 1,
         categoriaId: _selectedCategoryId,
@@ -219,8 +264,51 @@ class _ProductsTabState extends State<ProductsTab> {
     }
   }
 
-  void _buscar() {
+  Future<void> _buscar() async {
+    final query = _searchController.text.trim();
+    if (query.isNotEmpty) {
+      await _productosService.guardarBusqueda(query);
+      await _cargarHistorialBusquedas();
+    }
     _cargarDatos();
+  }
+
+  Future<void> _abrirEscanner() async {
+    final producto = await Navigator.push<Producto>(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const BarcodeScannerScreen(),
+      ),
+    );
+
+    if (producto != null && mounted) {
+      _showProductDetails(producto);
+    }
+  }
+
+  Future<void> _compartirProducto(Producto producto) async {
+    try {
+      final baseUrl = _productosService.getBaseUrl();
+      final link = '$baseUrl/productos/${producto.slug}';
+      final precio = producto.precioOferta ?? producto.precio;
+      final texto = 'Mira este producto: ${producto.nombre}\n'
+          'Precio: Bs. ${precio.toStringAsFixed(2)}\n'
+          '$link';
+      
+      await Share.share(
+        texto,
+        subject: producto.nombre,
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error al compartir: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 
   @override
@@ -231,31 +319,121 @@ class _ProductsTabState extends State<ProductsTab> {
         Container(
           padding: const EdgeInsets.all(16),
           color: Colors.blue.shade50,
-          child: TextField(
-            controller: _searchController,
-            decoration: InputDecoration(
-              hintText: 'Buscar productos...',
-              prefixIcon: const Icon(Icons.search),
-              filled: true,
-              fillColor: Colors.white,
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide.none,
+          child: Column(
+            children: [
+              TextField(
+                controller: _searchController,
+                decoration: InputDecoration(
+                  hintText: 'Buscar productos...',
+                  prefixIcon: const Icon(Icons.search),
+                  filled: true,
+                  fillColor: Colors.white,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide.none,
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(vertical: 0),
+                  suffixIcon: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (_searchController.text.isNotEmpty)
+                        IconButton(
+                          icon: const Icon(Icons.clear),
+                          onPressed: () {
+                            _searchController.clear();
+                            _buscar();
+                          },
+                        ),
+                      IconButton(
+                        icon: const Icon(Icons.qr_code_scanner),
+                        onPressed: _abrirEscanner,
+                        tooltip: 'Escanear código',
+                      ),
+                    ],
+                  ),
+                ),
+                onSubmitted: (_) => _buscar(),
+                onChanged: (value) {
+                  setState(() {});
+                },
               ),
-              contentPadding: const EdgeInsets.symmetric(vertical: 0),
-              suffixIcon: _searchController.text.isNotEmpty
-                  ? IconButton(
-                      icon: const Icon(Icons.clear),
-                      onPressed: () {
-                        _searchController.clear();
-                        _buscar();
-                      },
-                    )
-                  : null,
-            ),
-            onSubmitted: (_) => _buscar(),
+              // Historial de búsquedas
+              if (_historialBusquedas.isNotEmpty)
+                Container(
+                  margin: const EdgeInsets.only(top: 8),
+                  height: 40,
+                  child: ListView(
+                    scrollDirection: Axis.horizontal,
+                    children: [
+                      ..._historialBusquedas.map((busqueda) => Padding(
+                            padding: const EdgeInsets.only(right: 8),
+                            child: ActionChip(
+                              label: Text(busqueda),
+                              onPressed: () {
+                                _searchController.text = busqueda;
+                                _buscar();
+                              },
+                              avatar: const Icon(Icons.history, size: 16),
+                            ),
+                          )),
+                      ActionChip(
+                        label: const Text('Limpiar'),
+                        onPressed: () async {
+                          await _productosService.limpiarHistorial();
+                          await _cargarHistorialBusquedas();
+                        },
+                        avatar: const Icon(Icons.clear_all, size: 16),
+                        backgroundColor: Colors.grey.shade300,
+                      ),
+                    ],
+                  ),
+                ),
+            ],
           ),
         ),
+
+        // Filtros guardados
+        if (_filtrosGuardados.isNotEmpty)
+          Container(
+            margin: const EdgeInsets.only(top: 8, bottom: 4),
+            height: 40,
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Row(
+              children: [
+                Expanded(
+                  child: ListView(
+                    scrollDirection: Axis.horizontal,
+                    children: [
+                      ..._filtrosGuardados.asMap().entries.map((entry) {
+                        final index = entry.key;
+                        final filtro = entry.value;
+                        return Padding(
+                          padding: const EdgeInsets.only(right: 8),
+                          child: InkWell(
+                            onLongPress: () async {
+                              await _productosService.eliminarFiltro(index);
+                              await _cargarFiltrosGuardados();
+                            },
+                            child: ActionChip(
+                              label: Text(filtro['nombre'] ?? 'Filtro'),
+                              onPressed: () => _aplicarFiltroGuardado(filtro),
+                              avatar: const Icon(Icons.bookmark, size: 16),
+                            ),
+                          ),
+                        );
+                      }),
+                    ],
+                  ),
+                ),
+                if (_selectedCategoryId != null)
+                  IconButton(
+                    icon: const Icon(Icons.bookmark_add),
+                    onPressed: _guardarFiltroActual,
+                    tooltip: 'Guardar filtro actual',
+                  ),
+              ],
+            ),
+          ),
 
         // Filtro de categorías
         if (_categorias.isNotEmpty)
@@ -512,13 +690,37 @@ class _ProductsTabState extends State<ProductsTab> {
                           ),
                         ),
                       ),
-                    // Botones de acción (comparar y favorito)
+                    // Botones de acción (comparar, favorito y compartir)
                     Positioned(
                       top: 12,
                       right: 12,
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
+                          // Botón de compartir
+                          InkWell(
+                            onTap: () => _compartirProducto(producto),
+                            child: Container(
+                              padding: const EdgeInsets.all(8),
+                              margin: const EdgeInsets.only(bottom: 8),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                shape: BoxShape.circle,
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withOpacity(0.1),
+                                    blurRadius: 8,
+                                    offset: const Offset(0, 2),
+                                  ),
+                                ],
+                              ),
+                              child: const Icon(
+                                Icons.share,
+                                size: 18,
+                                color: Colors.green,
+                              ),
+                            ),
+                          ),
                           // Botón de comparar
                           InkWell(
                             onTap: () => _toggleComparacion(producto),
@@ -735,45 +937,76 @@ class _ProductsTabState extends State<ProductsTab> {
                 ),
                 const SizedBox(height: 20),
                 Center(
-                  child: Container(
-                    height: 200,
-                    decoration: BoxDecoration(
-                      color: Colors.grey.shade100,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: imagenUrl != null && imagenUrl.isNotEmpty
-                        ? ClipRRect(
-                            borderRadius: BorderRadius.circular(12),
-                            child: Image.network(
-                              imagenUrl,
-                              fit: BoxFit.contain,
-                              loadingBuilder:
-                                  (context, child, loadingProgress) {
-                                    if (loadingProgress == null) return child;
-                                    return Center(
-                                      child: CircularProgressIndicator(
-                                        value:
-                                            loadingProgress
-                                                    .expectedTotalBytes !=
-                                                null
-                                            ? loadingProgress
-                                                      .cumulativeBytesLoaded /
+                  child: GestureDetector(
+                    onTap: () => _mostrarGaleriaImagenes(producto, 0),
+                    child: Container(
+                      height: 200,
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade100,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: imagenUrl != null && imagenUrl.isNotEmpty
+                          ? ClipRRect(
+                              borderRadius: BorderRadius.circular(12),
+                              child: Stack(
+                                fit: StackFit.expand,
+                                children: [
+                                  Image.network(
+                                    imagenUrl,
+                                    fit: BoxFit.contain,
+                                    loadingBuilder:
+                                        (context, child, loadingProgress) {
+                                          if (loadingProgress == null) return child;
+                                          return Center(
+                                            child: CircularProgressIndicator(
+                                              value:
                                                   loadingProgress
-                                                      .expectedTotalBytes!
-                                            : null,
+                                                          .expectedTotalBytes !=
+                                                      null
+                                                  ? loadingProgress
+                                                            .cumulativeBytesLoaded /
+                                                        loadingProgress
+                                                            .expectedTotalBytes!
+                                                  : null,
+                                            ),
+                                          );
+                                        },
+                                    errorBuilder: (context, error, stackTrace) {
+                                      return const Icon(
+                                        Icons.image,
+                                        size: 80,
+                                        color: Colors.grey,
+                                      );
+                                    },
+                                  ),
+                                  if (producto.imagenes.length > 1)
+                                    Positioned(
+                                      bottom: 8,
+                                      right: 8,
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 8,
+                                          vertical: 4,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: Colors.black.withValues(alpha: 0.6),
+                                          borderRadius: BorderRadius.circular(12),
+                                        ),
+                                        child: Text(
+                                          '${producto.imagenes.length} imágenes',
+                                          style: const TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
                                       ),
-                                    );
-                                  },
-                              errorBuilder: (context, error, stackTrace) {
-                                return const Icon(
-                                  Icons.image,
-                                  size: 80,
-                                  color: Colors.grey,
-                                );
-                              },
-                            ),
-                          )
-                        : const Icon(Icons.image, size: 80, color: Colors.grey),
+                                    ),
+                                ],
+                              ),
+                            )
+                          : const Icon(Icons.image, size: 80, color: Colors.grey),
+                    ),
                   ),
                 ),
                 const SizedBox(height: 24),
@@ -792,6 +1025,11 @@ class _ProductsTabState extends State<ProductsTab> {
                     Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
+                        IconButton(
+                          icon: const Icon(Icons.share),
+                          onPressed: () => _compartirProducto(producto),
+                          tooltip: 'Compartir',
+                        ),
                         IconButton(
                           icon: Icon(
                             Icons.compare_arrows,
@@ -926,6 +1164,51 @@ class _ProductsTabState extends State<ProductsTab> {
                 ),
               ],
             ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _mostrarGaleriaImagenes(Producto producto, int initialIndex) {
+    final imagenes = <String>[];
+    
+    if (producto.imagenes.isNotEmpty) {
+      imagenes.addAll(producto.imagenes.map((img) => img.imagen));
+    } else if (producto.imagen != null && producto.imagen!.isNotEmpty) {
+      imagenes.add(producto.imagen!);
+    }
+
+    if (imagenes.isEmpty) return;
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => Scaffold(
+          backgroundColor: Colors.black,
+          appBar: AppBar(
+            backgroundColor: Colors.transparent,
+            iconTheme: const IconThemeData(color: Colors.white),
+          ),
+          body: PhotoViewGallery.builder(
+            scrollPhysics: const BouncingScrollPhysics(),
+            builder: (BuildContext context, int index) {
+              return PhotoViewGalleryPageOptions(
+                imageProvider: NetworkImage(imagenes[index]),
+                initialScale: PhotoViewComputedScale.contained,
+                minScale: PhotoViewComputedScale.contained,
+                maxScale: PhotoViewComputedScale.covered * 2,
+              );
+            },
+            itemCount: imagenes.length,
+            loadingBuilder: (context, event) => Center(
+              child: CircularProgressIndicator(
+                value: event == null
+                    ? 0
+                    : event.cumulativeBytesLoaded / event.expectedTotalBytes!,
+              ),
+            ),
+            pageController: PageController(initialPage: initialIndex),
           ),
         ),
       ),
