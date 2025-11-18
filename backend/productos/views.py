@@ -17,6 +17,8 @@ from .serializers import (
 )
 from .filters import ProductoFilter
 from .semantic_search import buscar_productos_semantica, interpretar_consulta
+from .image_search import ImageSearchService
+from .azure_vision import AzureVisionService
 
 
 class CategoriaViewSet(viewsets.ModelViewSet):
@@ -433,6 +435,89 @@ class ProductoViewSet(viewsets.ModelViewSet):
             'query': query,
             'mode': modo_usado,
             'interpretacion': interpretacion if mode == 'semantic' else None,
+        })
+    
+    @action(detail=False, methods=['post'], url_path='buscar-por-imagen', permission_classes=[AllowAny])
+    def buscar_por_imagen(self, request):
+        """
+        Buscar productos por imagen usando Azure Computer Vision
+        POST /api/productos/buscar-por-imagen/
+        
+        Body: multipart/form-data con campo 'image'
+        """
+        if not AzureVisionService.is_configured():
+            return Response(
+                {'error': 'Búsqueda por imagen no está configurada. Contacte al administrador.'},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE
+            )
+        
+        # Verificar que se haya enviado una imagen
+        if 'image' not in request.FILES:
+            return Response(
+                {'error': 'No se proporcionó ninguna imagen. Envíe un archivo con el campo "image".'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        uploaded_file = request.FILES['image']
+        
+        # Leer datos de la imagen
+        try:
+            image_data = uploaded_file.read()
+        except Exception as e:
+            return Response(
+                {'error': f'Error leyendo imagen: {str(e)}'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Validar imagen
+        is_valid, error_message = ImageSearchService.validate_image(image_data)
+        if not is_valid:
+            return Response(
+                {'error': error_message},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Obtener límite de resultados (opcional)
+        from django.conf import settings
+        default_limit = getattr(settings, 'IMAGE_SEARCH_DEFAULT_RESULTS', 10)
+        max_limit = getattr(settings, 'IMAGE_SEARCH_MAX_RESULTS', 20)
+        limit = int(request.data.get('limit', default_limit))
+        limit = min(max(limit, 1), max_limit)  # Entre 1 y max_limit
+        
+        # Buscar productos similares
+        try:
+            results = ImageSearchService.search_by_image(image_data, limit=limit)
+        except Exception as e:
+            print(f"❌ Error en búsqueda por imagen: {e}")
+            return Response(
+                {'error': 'Error procesando la imagen. Intente nuevamente.'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+        
+        if not results:
+            return Response({
+                'count': 0,
+                'results': [],
+                'message': 'No se encontraron productos similares'
+            })
+        
+        # Serializar resultados
+        productos_data = []
+        for result in results:
+            producto = result['producto']
+            serializer = ProductoListSerializer(
+                producto,
+                context={'request': request}
+            )
+            productos_data.append({
+                'producto': serializer.data,
+                'similarity_score': round(result['similarity_score'], 3)
+            })
+        
+        return Response({
+            'count': len(productos_data),
+            'results': productos_data,
+            'message': f'Se encontraron {len(productos_data)} producto(s) similar(es)'
         })
 
 

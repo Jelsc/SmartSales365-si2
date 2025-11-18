@@ -398,3 +398,27 @@ STRIPE_PUBLIC_KEY = os.getenv("STRIPE_PUBLIC_KEY", "")
 STRIPE_SECRET_KEY = os.getenv("STRIPE_SECRET_KEY", "")
 STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET", "")
 
+# Configuración de Azure Computer Vision
+AZURE_VISION_ENDPOINT = os.getenv("AZURE_VISION_ENDPOINT", "")
+AZURE_VISION_KEY = os.getenv("AZURE_VISION_KEY", "")
+
+# Configuración de búsqueda por imagen
+IMAGE_SEARCH_CACHE_TIMEOUT = int(
+    os.getenv("IMAGE_SEARCH_CACHE_TIMEOUT", "86400")
+)  # 24 horas por defecto
+IMAGE_SEARCH_SIMILARITY_THRESHOLD = float(
+    os.getenv("IMAGE_SEARCH_SIMILARITY_THRESHOLD", "0.3")
+)  # Umbral mínimo de similitud (0.0-1.0)
+IMAGE_SEARCH_MAX_IMAGE_SIZE_MB = int(
+    os.getenv("IMAGE_SEARCH_MAX_IMAGE_SIZE_MB", "10")
+)  # Tamaño máximo de imagen en MB
+IMAGE_SEARCH_MAX_RESULTS = int(
+    os.getenv("IMAGE_SEARCH_MAX_RESULTS", "20")
+)  # Máximo de resultados por búsqueda
+IMAGE_SEARCH_DEFAULT_RESULTS = int(
+    os.getenv("IMAGE_SEARCH_DEFAULT_RESULTS", "10")
+)  # Resultados por defecto
+IMAGE_SEARCH_ALLOWED_FORMATS = os.getenv(
+    "IMAGE_SEARCH_ALLOWED_FORMATS", "JPEG,PNG,WEBP"
+).split(",")  # Formatos permitidos
+
