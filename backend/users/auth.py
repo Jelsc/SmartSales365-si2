@@ -32,46 +32,44 @@ class UniversalLoginView(APIView):
     Login universal que detecta automáticamente el tipo de usuario
     y retorna la respuesta apropiada según el rol
     """
-    
+
     permission_classes = [permissions.AllowAny]
-    
+
     def post(self, request):
-        username = request.data.get('username')
-        email = request.data.get('email')
-        password = request.data.get('password')
-        
+        username = request.data.get("username")
+        email = request.data.get("email")
+        password = request.data.get("password")
+
         # Aceptar tanto username como email
         login_field = username or email
-        
+
         if not login_field or not password:
             return Response(
-                {'error': 'Username/email y password son requeridos'},
-                status=status.HTTP_400_BAD_REQUEST
+                {"error": "Username/email y password son requeridos"},
+                status=status.HTTP_400_BAD_REQUEST,
             )
-        
+
         # Autenticar usuario (Django puede usar email como username)
         user = authenticate(username=login_field, password=password)
-        
+
         if not user:
             return Response(
-                {'error': 'Credenciales inválidas'},
-                status=status.HTTP_401_UNAUTHORIZED
+                {"error": "Credenciales inválidas"}, status=status.HTTP_401_UNAUTHORIZED
             )
-        
+
         # Verificar que el usuario esté activo
         if not user.is_active:
             return Response(
-                {'error': 'Usuario inactivo'},
-                status=status.HTTP_403_FORBIDDEN
+                {"error": "Usuario inactivo"}, status=status.HTTP_403_FORBIDDEN
             )
-        
+
         # Generar tokens JWT
         refresh = RefreshToken.for_user(user)
         access_token = refresh.access_token
-        
+
         # Actualizar último acceso (Django maneja esto automáticamente con last_login)
         # user.last_login se actualiza automáticamente por Django
-        
+
         # Determinar tipo de usuario y registrar en bitácora
         if user.es_administrativo:
             tipo_usuario = "Administrativo"
@@ -81,29 +79,45 @@ class UniversalLoginView(APIView):
             tipo_usuario = "Cliente"
             accion = "Login Cliente"
             descripcion = f"Cliente {user.username} inició sesión"
-        
+
         # Registrar en bitácora
         registrar_bitacora(
             request=request,
             usuario=user,
             accion=accion,
             descripcion=descripcion,
-            modulo="AUTENTICACION"
+            modulo="AUTENTICACION",
         )
-        
+
+        # Enviar notificación de login exitoso
+        try:
+            from notifications.utils import notificar_login_exitoso
+
+            # Obtener info del dispositivo desde headers
+            dispositivo_info = {
+                "device": request.META.get("HTTP_USER_AGENT", "desconocido"),
+                "ip": request.META.get("REMOTE_ADDR", ""),
+                "platform": request.data.get("platform", "web"),
+            }
+
+            notificar_login_exitoso(user, dispositivo_info)
+        except Exception as e:
+            # No fallar el login si falla la notificación
+            print(f"⚠️ Error enviando notificación de login: {e}")
+
         # Respuesta diferenciada según el tipo de usuario
         response_data = {
-            'access': str(access_token),
-            'refresh': str(refresh),
-            'user': UserSerializer(user).data,
-            'tipo_login': 'administrativo' if user.es_administrativo else 'cliente',
-            'puede_acceder_admin': user.puede_acceder_admin
+            "access": str(access_token),
+            "refresh": str(refresh),
+            "user": UserSerializer(user).data,
+            "tipo_login": "administrativo" if user.es_administrativo else "cliente",
+            "puede_acceder_admin": user.puede_acceder_admin,
         }
-        
+
         return Response(response_data)
 
 
-@api_view(['POST'])
+@api_view(["POST"])
 @permission_classes([permissions.IsAuthenticated])
 def universal_logout(request):
     """
@@ -111,14 +125,14 @@ def universal_logout(request):
     Invalida el token usando blacklist
     """
     try:
-        refresh_token = request.data.get('refresh')
-        
+        refresh_token = request.data.get("refresh")
+
         if not refresh_token:
             return Response(
-                {'error': 'Token de refresh requerido'},
-                status=status.HTTP_400_BAD_REQUEST
+                {"error": "Token de refresh requerido"},
+                status=status.HTTP_400_BAD_REQUEST,
             )
-        
+
         # Invalidar token usando blacklist
         try:
             token = RefreshToken(refresh_token)
@@ -126,11 +140,11 @@ def universal_logout(request):
         except Exception as token_error:
             # Si el token ya está en blacklist o es inválido, continuar con el logout
             print(f"Error al invalidar token: {token_error}")
-        
+
         # Actualizar último acceso (Django maneja esto automáticamente)
         user = request.user
         # user.last_login se actualiza automáticamente por Django
-        
+
         # Registrar en bitácora
         tipo_usuario = "Administrativo" if user.es_administrativo else "Cliente"
         registrar_bitacora(
@@ -138,22 +152,18 @@ def universal_logout(request):
             usuario=user,
             accion="Logout",
             descripcion=f"{tipo_usuario} {user.username} cerró sesión",
-            modulo="AUTENTICACION"
+            modulo="AUTENTICACION",
         )
-        
+
         return Response(
-            {'message': 'Logout exitoso'},
-            status=status.HTTP_205_RESET_CONTENT
+            {"message": "Logout exitoso"}, status=status.HTTP_205_RESET_CONTENT
         )
-        
+
     except Exception as e:
-        return Response(
-            {'error': 'Token inválido'},
-            status=status.HTTP_400_BAD_REQUEST
-        )
+        return Response({"error": "Token inválido"}, status=status.HTTP_400_BAD_REQUEST)
 
 
-@api_view(['GET'])
+@api_view(["GET"])
 @permission_classes([permissions.IsAuthenticated])
 def user_info(request):
     """
@@ -161,71 +171,71 @@ def user_info(request):
     Retorna datos específicos según el tipo de usuario
     """
     user = request.user
-    
+
     # Información básica
     data = {
-        'id': user.id,
-        'username': user.username,
-        'email': user.email,
-        'first_name': user.first_name,
-        'last_name': user.last_name,
-        'telefono': user.telefono,
-        'direccion': user.direccion,
-        'is_active': user.is_active,
-        'last_login': user.last_login,
-        'es_administrativo': user.es_administrativo,
-        'es_cliente': user.es_cliente,
-        'puede_acceder_admin': user.puede_acceder_admin,
+        "id": user.id,
+        "username": user.username,
+        "email": user.email,
+        "first_name": user.first_name,
+        "last_name": user.last_name,
+        "telefono": user.telefono,
+        "direccion": user.direccion,
+        "is_active": user.is_active,
+        "last_login": user.last_login,
+        "es_administrativo": user.es_administrativo,
+        "es_cliente": user.es_cliente,
+        "puede_acceder_admin": user.puede_acceder_admin,
     }
-    
+
     # Información del rol
     if user.rol:
-        data['rol'] = {
-            'id': user.rol.id,
-            'nombre': user.rol.nombre,
-            'descripcion': user.rol.descripcion,
-            'es_administrativo': user.rol.es_administrativo,
-            'permisos': user.rol.permisos
+        data["rol"] = {
+            "id": user.rol.id,
+            "nombre": user.rol.nombre,
+            "descripcion": user.rol.descripcion,
+            "es_administrativo": user.rol.es_administrativo,
+            "permisos": user.rol.permisos,
         }
     else:
-        data['rol'] = None
-    
+        data["rol"] = None
+
     # Información específica según el tipo de usuario
     if user.es_administrativo:
-        data['codigo_empleado'] = getattr(user, 'codigo_empleado', None)
-        data['departamento'] = getattr(user, 'departamento', None)
-        
+        data["codigo_empleado"] = getattr(user, "codigo_empleado", None)
+        data["departamento"] = getattr(user, "departamento", None)
+
         # Información adicional del perfil específico
         try:
-            if hasattr(user, 'conductor_profile'):
-                data['perfil_conductor'] = {
-                    'nro_licencia': user.conductor_profile.nro_licencia,
-                    'tipo_licencia': user.conductor_profile.tipo_licencia,
-                    'estado': user.conductor_profile.estado,
-                    'estado_usuario': user.conductor_profile.estado_usuario
+            if hasattr(user, "conductor_profile"):
+                data["perfil_conductor"] = {
+                    "nro_licencia": user.conductor_profile.nro_licencia,
+                    "tipo_licencia": user.conductor_profile.tipo_licencia,
+                    "estado": user.conductor_profile.estado,
+                    "estado_usuario": user.conductor_profile.estado_usuario,
                 }
         except:
             pass
-        
+
         try:
-            if hasattr(user, 'personal_profile'):
-                data['perfil_personal'] = {
-                    'codigo_empleado': user.personal_profile.codigo_empleado,
-                    'estado': user.personal_profile.estado,
-                    'fecha_ingreso': user.personal_profile.fecha_ingreso,
-                    'telefono_emergencia': user.personal_profile.telefono_emergencia,
-                    'contacto_emergencia': user.personal_profile.contacto_emergencia
+            if hasattr(user, "personal_profile"):
+                data["perfil_personal"] = {
+                    "codigo_empleado": user.personal_profile.codigo_empleado,
+                    "estado": user.personal_profile.estado,
+                    "fecha_ingreso": user.personal_profile.fecha_ingreso,
+                    "telefono_emergencia": user.personal_profile.telefono_emergencia,
+                    "contacto_emergencia": user.personal_profile.contacto_emergencia,
                 }
         except:
             pass
     else:
-        data['fecha_nacimiento'] = user.fecha_nacimiento
-        data['ci'] = user.ci
-    
+        data["fecha_nacimiento"] = user.fecha_nacimiento
+        data["ci"] = user.ci
+
     return Response(data)
 
 
-@api_view(['GET'])
+@api_view(["GET"])
 @permission_classes([permissions.IsAuthenticated])
 def dashboard_data(request):
     """
@@ -233,162 +243,176 @@ def dashboard_data(request):
     Retorna información específica para cada tipo de usuario
     """
     user = request.user
-    
+
     if user.es_administrativo:
         # Dashboard administrativo
         data = {
-            'tipo_usuario': 'administrativo',
-            'rol': user.rol.nombre if user.rol else 'Sin rol',
-            'permisos': user.get_permisos(),
-            'departamento': getattr(user, 'departamento', None),
-            'codigo_empleado': getattr(user, 'codigo_empleado', None),
-            'menu_items': _get_admin_menu_items(user),
-            'estadisticas': _get_admin_stats(user)
+            "tipo_usuario": "administrativo",
+            "rol": user.rol.nombre if user.rol else "Sin rol",
+            "permisos": user.get_permisos(),
+            "departamento": getattr(user, "departamento", None),
+            "codigo_empleado": getattr(user, "codigo_empleado", None),
+            "menu_items": _get_admin_menu_items(user),
+            "estadisticas": _get_admin_stats(user),
         }
     else:
         # Dashboard cliente
         data = {
-            'tipo_usuario': 'cliente',
-            'rol': user.rol.nombre if user.rol else 'Sin rol',
-            'menu_items': _get_cliente_menu_items(),
-            'estadisticas': _get_cliente_stats(user)
+            "tipo_usuario": "cliente",
+            "rol": user.rol.nombre if user.rol else "Sin rol",
+            "menu_items": _get_cliente_menu_items(),
+            "estadisticas": _get_cliente_stats(user),
         }
-    
+
     return Response(data)
 
 
 def _get_admin_menu_items(user):
     """Obtiene los elementos del menú para administradores"""
     menu_items = []
-    
+
     # Menú base para todos los administrativos
-    if user.tiene_permiso('ver_dashboard_admin'):
-        menu_items.append({
-            'nombre': 'Dashboard',
-            'icono': 'dashboard',
-            'url': '/admin/dashboard',
-            'permisos': ['ver_dashboard_admin']
-        })
-    
+    if user.tiene_permiso("ver_dashboard_admin"):
+        menu_items.append(
+            {
+                "nombre": "Dashboard",
+                "icono": "dashboard",
+                "url": "/admin/dashboard",
+                "permisos": ["ver_dashboard_admin"],
+            }
+        )
+
     # Gestión de usuarios
-    if user.tiene_permiso('gestionar_usuarios'):
-        menu_items.append({
-            'nombre': 'Usuarios',
-            'icono': 'users',
-            'url': '/admin/usuarios',
-            'permisos': ['gestionar_usuarios']
-        })
-    
+    if user.tiene_permiso("gestionar_usuarios"):
+        menu_items.append(
+            {
+                "nombre": "Usuarios",
+                "icono": "users",
+                "url": "/admin/usuarios",
+                "permisos": ["gestionar_usuarios"],
+            }
+        )
+
     # Gestión de roles
-    if user.tiene_permiso('gestionar_roles'):
-        menu_items.append({
-            'nombre': 'Roles y Permisos',
-            'icono': 'shield',
-            'url': '/admin/roles',
-            'permisos': ['gestionar_roles']
-        })
-    
+    if user.tiene_permiso("gestionar_roles"):
+        menu_items.append(
+            {
+                "nombre": "Roles y Permisos",
+                "icono": "shield",
+                "url": "/admin/roles",
+                "permisos": ["gestionar_roles"],
+            }
+        )
+
     # Gestión de conductores
-    if user.tiene_permiso('gestionar_conductores'):
-        menu_items.append({
-            'nombre': 'Conductores',
-            'icono': 'car',
-            'url': '/admin/conductores',
-            'permisos': ['gestionar_conductores']
-        })
-    
+    if user.tiene_permiso("gestionar_conductores"):
+        menu_items.append(
+            {
+                "nombre": "Conductores",
+                "icono": "car",
+                "url": "/admin/conductores",
+                "permisos": ["gestionar_conductores"],
+            }
+        )
+
     # Gestión de personal
-    if user.tiene_permiso('gestionar_personal'):
-        menu_items.append({
-            'nombre': 'Personal',
-            'icono': 'briefcase',
-            'url': '/admin/personal',
-            'permisos': ['gestionar_personal']
-        })
-    
+    if user.tiene_permiso("gestionar_personal"):
+        menu_items.append(
+            {
+                "nombre": "Personal",
+                "icono": "briefcase",
+                "url": "/admin/personal",
+                "permisos": ["gestionar_personal"],
+            }
+        )
+
     # Reportes
-    if user.tiene_permiso('ver_reportes_basicos'):
-        menu_items.append({
-            'nombre': 'Reportes',
-            'icono': 'chart-bar',
-            'url': '/admin/reportes',
-            'permisos': ['ver_reportes_basicos', 'ver_reportes_avanzados']
-        })
-    
+    if user.tiene_permiso("ver_reportes_basicos"):
+        menu_items.append(
+            {
+                "nombre": "Reportes",
+                "icono": "chart-bar",
+                "url": "/admin/reportes",
+                "permisos": ["ver_reportes_basicos", "ver_reportes_avanzados"],
+            }
+        )
+
     return menu_items
 
 
 def _get_cliente_menu_items():
     """Obtiene los elementos del menú para clientes"""
     return [
+        {"nombre": "Inicio", "icono": "home", "url": "/cliente/inicio", "permisos": []},
         {
-            'nombre': 'Inicio',
-            'icono': 'home',
-            'url': '/cliente/inicio',
-            'permisos': []
+            "nombre": "Solicitar Viaje",
+            "icono": "plus",
+            "url": "/cliente/solicitar-viaje",
+            "permisos": ["solicitar_viaje"],
         },
         {
-            'nombre': 'Solicitar Viaje',
-            'icono': 'plus',
-            'url': '/cliente/solicitar-viaje',
-            'permisos': ['solicitar_viaje']
+            "nombre": "Mis Viajes",
+            "icono": "list",
+            "url": "/cliente/mis-viajes",
+            "permisos": ["ver_historial_viajes"],
         },
         {
-            'nombre': 'Mis Viajes',
-            'icono': 'list',
-            'url': '/cliente/mis-viajes',
-            'permisos': ['ver_historial_viajes']
+            "nombre": "Perfil",
+            "icono": "user",
+            "url": "/cliente/perfil",
+            "permisos": ["ver_perfil"],
         },
-        {
-            'nombre': 'Perfil',
-            'icono': 'user',
-            'url': '/cliente/perfil',
-            'permisos': ['ver_perfil']
-        }
     ]
 
 
 def _get_admin_stats(user):
     """Obtiene estadísticas para el dashboard administrativo"""
     stats = {}
-    
+
     # Estadísticas de usuarios
-    if user.tiene_permiso('gestionar_usuarios'):
+    if user.tiene_permiso("gestionar_usuarios"):
         from django.contrib.auth import get_user_model
+
         User = get_user_model()
-        
-        stats['usuarios'] = {
-            'total': User.objects.count(),
-            'activos': User.objects.filter(is_active=True).count(),
-            'administrativos': User.objects.filter(rol__es_administrativo=True).count(),
-            'clientes': User.objects.filter(rol__es_administrativo=False).count()
+
+        stats["usuarios"] = {
+            "total": User.objects.count(),
+            "activos": User.objects.filter(is_active=True).count(),
+            "administrativos": User.objects.filter(rol__es_administrativo=True).count(),
+            "clientes": User.objects.filter(rol__es_administrativo=False).count(),
         }
-    
+
     # Estadísticas de conductores
-    if user.tiene_permiso('ver_conductores'):
+    if user.tiene_permiso("ver_conductores"):
         try:
             from conductores.models import Conductor
-            stats['conductores'] = {
-                'total': Conductor.objects.count(),
-                'activos': Conductor.objects.filter(usuario__is_active=True).count(),
-                'disponibles': Conductor.objects.filter(estado='disponible', usuario__is_active=True).count(),
-                'ocupados': Conductor.objects.filter(estado='ocupado', usuario__is_active=True).count()
+
+            stats["conductores"] = {
+                "total": Conductor.objects.count(),
+                "activos": Conductor.objects.filter(usuario__is_active=True).count(),
+                "disponibles": Conductor.objects.filter(
+                    estado="disponible", usuario__is_active=True
+                ).count(),
+                "ocupados": Conductor.objects.filter(
+                    estado="ocupado", usuario__is_active=True
+                ).count(),
             }
         except ImportError:
             pass
-    
+
     # Estadísticas de personal
-    if user.tiene_permiso('ver_personal'):
+    if user.tiene_permiso("ver_personal"):
         try:
             from personal.models import Personal
-            stats['personal'] = {
-                'total': Personal.objects.count(),
-                'activos': Personal.objects.filter(estado=True).count(),
-                'inactivos': Personal.objects.filter(estado=False).count()
+
+            stats["personal"] = {
+                "total": Personal.objects.count(),
+                "activos": Personal.objects.filter(estado=True).count(),
+                "inactivos": Personal.objects.filter(estado=False).count(),
             }
         except ImportError:
             pass
-    
+
     return stats
 
 
@@ -397,7 +421,7 @@ def _get_cliente_stats(user):
     # Aquí puedes agregar estadísticas específicas del cliente
     # como número de viajes, viajes pendientes, etc.
     return {
-        'viajes_totales': 0,  # Implementar según tu lógica de negocio
-        'viajes_pendientes': 0,
-        'viajes_completados': 0
+        "viajes_totales": 0,  # Implementar según tu lógica de negocio
+        "viajes_pendientes": 0,
+        "viajes_completados": 0,
     }

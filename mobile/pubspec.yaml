@@ -2,7 +2,7 @@ name: mobile
 description: "A new Flutter project."
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
-publish_to: 'none' # Remove this line if you wish to publish to pub.dev
+publish_to: "none" # Remove this line if you wish to publish to pub.dev
 
 # The following defines the version and build number for your application.
 # A version number is three numbers separated by dots, like 1.2.43
@@ -37,6 +37,36 @@ dependencies:
   http: ^1.1.0
   shared_preferences: ^2.1.1
   fluttertoast: ^8.2.4
+  intl: ^0.19.0
+
+  # Firebase para notificaciones push
+  firebase_core: ^3.8.1
+  firebase_messaging: ^15.1.5
+  flutter_local_notifications: ^18.0.1
+
+  # Sistema de pagos con Stripe
+  flutter_stripe: ^11.2.0
+  webview_flutter: ^4.10.0
+  url_launcher: ^6.3.1
+
+  # Reconocimiento de voz para reportes dinámicos
+  speech_to_text: ^7.0.0
+  permission_handler: ^12.0.0
+  path_provider: ^2.1.0
+  open_filex: ^4.5.0
+
+  # Generación de PDFs
+  pdf: ^3.11.3
+  printing: ^5.14.2
+
+  # Búsqueda por código de barras/QR
+  mobile_scanner: ^5.0.0
+
+  # Compartir productos
+  share_plus: ^7.0.0
+
+  # Galería de imágenes mejorada
+  photo_view: ^0.14.0
 
 dev_dependencies:
   flutter_test:
@@ -54,7 +84,6 @@ dev_dependencies:
 
 # The following section is specific to Flutter packages.
 flutter:
-
   # The following line ensures that the Material Icons font is
   # included with your application, so that you can use the icons in
   # the material Icons class.

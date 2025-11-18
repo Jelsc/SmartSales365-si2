@@ -1,25 +1,87 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'services/auth_service.dart';
+import 'services/notification_service.dart';
+import 'services/payment_service.dart';
 import 'navigation/app_router.dart';
 import 'screens/onboarding_screen.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/client/client_home_screen.dart';
+import 'screens/admin/admin_home_screen.dart';
+import 'config/api_config.dart';
+import 'providers/theme_provider.dart';
 
-void main() {
+/// Handler para notificaciones en background (debe estar en nivel superior)
+@pragma('vm:entry-point')
+Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+  await Firebase.initializeApp();
+  await firebaseMessagingBackgroundHandler(message);
+}
+
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  try {
+    // Detectar y guardar la URL del backend PRIMERO
+    print('🔍 Detectando URL del backend...');
+    final baseUrl = ApiConfig.getBaseUrl();
+    print('✅ URL del backend configurada: $baseUrl');
+
+    // Inicializar Firebase
+    await Firebase.initializeApp();
+    print('✅ Firebase inicializado');
+
+    // Configurar handler de mensajes en background
+    FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
+
+    // Inicializar servicio de notificaciones
+    await NotificationService().initialize();
+    print('✅ NotificationService inicializado');
+
+    // Inicializar Stripe para pagos
+    await PaymentService().initializeStripe();
+    print('✅ Stripe inicializado');
+  } catch (e) {
+    print('❌ Error inicializando servicios: $e');
+  }
+
   runApp(const MyApp());
 }
 
-class MyApp extends StatelessWidget {
+class MyApp extends StatefulWidget {
   const MyApp({super.key});
+
+  // NavigatorKey global para navegación desde notificaciones
+  static final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
+
+  @override
+  State<MyApp> createState() => _MyAppState();
+}
+
+class _MyAppState extends State<MyApp> {
+  final _themeProvider = ThemeProvider();
+
+  @override
+  void initState() {
+    super.initState();
+    // Configurar NavigatorKey en NotificationService
+    NotificationService.setNavigatorKey(MyApp.navigatorKey);
+  }
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'MoviFleet',
-      onGenerateRoute: AppRouter.generateRoute,
-      initialRoute: '/',
-      theme: ThemeData(
+    return ListenableBuilder(
+      listenable: _themeProvider,
+      builder: (context, _) {
+        return MaterialApp(
+          title: 'SmartSales365',
+          navigatorKey: MyApp.navigatorKey,
+          onGenerateRoute: AppRouter.generateRoute,
+          initialRoute: '/',
+          themeMode: _themeProvider.themeMode,
+          theme: ThemeData(
         primarySwatch: Colors.blue,
         primaryColor: Colors.blue,
         colorScheme: ColorScheme.fromSeed(
@@ -73,7 +135,66 @@ class MyApp extends StatelessWidget {
           ),
         ),
       ),
-      home: const AuthWrapper(),
+      darkTheme: ThemeData(
+        primarySwatch: Colors.blue,
+        primaryColor: Colors.blue,
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: Colors.blue,
+          brightness: Brightness.dark,
+        ),
+        useMaterial3: true,
+        appBarTheme: const AppBarTheme(
+          backgroundColor: Color(0xFF1E1E1E),
+          foregroundColor: Colors.white,
+          elevation: 4,
+          shadowColor: Colors.black,
+        ),
+        elevatedButtonTheme: ElevatedButtonThemeData(
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.blue,
+            foregroundColor: Colors.white,
+            elevation: 4,
+            shadowColor: Colors.blue.withOpacity(0.3),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+        ),
+        outlinedButtonTheme: OutlinedButtonThemeData(
+          style: OutlinedButton.styleFrom(
+            foregroundColor: Colors.blue,
+            side: const BorderSide(color: Colors.blue, width: 2),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+        ),
+        inputDecorationTheme: InputDecorationTheme(
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide(color: Colors.grey.shade700),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: const BorderSide(color: Colors.blue, width: 2),
+          ),
+          filled: true,
+          fillColor: Colors.grey.shade800,
+        ),
+        cardTheme: CardThemeData(
+          elevation: 4,
+          shadowColor: Colors.black.withOpacity(0.3),
+          color: Colors.grey.shade900,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+        ),
+        scaffoldBackgroundColor: const Color(0xFF121212),
+        brightness: Brightness.dark,
+      ),
+          home: const AuthWrapper(),
+        );
+      },
     );
   }
 }
@@ -90,6 +211,7 @@ class _AuthWrapperState extends State<AuthWrapper> {
   bool _isLoading = true;
   bool _isAuthenticated = false;
   bool _hasSeenOnboarding = false;
+  bool _isAdmin = false; // Nueva variable para controlar el tipo de usuario
 
   @override
   void initState() {
@@ -102,20 +224,33 @@ class _AuthWrapperState extends State<AuthWrapper> {
       // Verificar si el usuario ha visto el onboarding
       final prefs = await SharedPreferences.getInstance();
       _hasSeenOnboarding = prefs.getBool('has_seen_onboarding') ?? false;
-      
+
       // Verificar autenticación solo si ya vio el onboarding
       if (_hasSeenOnboarding) {
         final isAuth = await _authService.isAuthenticated();
-        setState(() {
-          _isAuthenticated = isAuth;
-          _isLoading = false;
-        });
+
+        if (isAuth) {
+          // Verificar el tipo de usuario guardado para evitar bug de persistencia
+          final isAdmin = await AppRouter.isAdminUser();
+
+          setState(() {
+            _isAuthenticated = true;
+            _isAdmin = isAdmin;
+            _isLoading = false;
+          });
+        } else {
+          setState(() {
+            _isAuthenticated = false;
+            _isLoading = false;
+          });
+        }
       } else {
         setState(() {
           _isLoading = false;
         });
       }
     } catch (e) {
+      print('❌ Error al verificar estado de la app: $e');
       setState(() {
         _isAuthenticated = false;
         _isLoading = false;
@@ -134,11 +269,14 @@ class _AuthWrapperState extends State<AuthWrapper> {
       return const OnboardingScreen();
     }
 
-    // Redirigir según autenticación
+    // Redirigir según autenticación y tipo de usuario
+    // Esto previene el bug de cambio de módulo al cerrar/abrir la app
     if (_isAuthenticated) {
-      // TODO: Aquí se podría obtener el tipo de usuario y redirigir específicamente
-      // Por ahora todos van a ClientHomeScreen, pero se puede expandir
-      return const ClientHomeScreen();
+      if (_isAdmin) {
+        return const AdminHomeScreen();
+      } else {
+        return const ClientHomeScreen();
+      }
     } else {
       return const LoginScreen();
     }
@@ -166,16 +304,16 @@ class _AuthWrapperState extends State<AuthWrapper> {
                 ],
               ),
               child: const Icon(
-                Icons.directions_bus,
+                Icons.shopping_bag,
                 size: 80,
                 color: Colors.blue,
               ),
             ),
             const SizedBox(height: 40),
-            
+
             // Título de la app
             const Text(
-              'MoviFleet',
+              'SmartSales365',
               style: TextStyle(
                 fontSize: 32,
                 fontWeight: FontWeight.bold,
@@ -185,7 +323,7 @@ class _AuthWrapperState extends State<AuthWrapper> {
             ),
             const SizedBox(height: 8),
             const Text(
-              'Tu transporte de confianza',
+              'Tu tienda inteligente',
               style: TextStyle(
                 fontSize: 16,
                 color: Colors.grey,
@@ -193,7 +331,7 @@ class _AuthWrapperState extends State<AuthWrapper> {
               ),
             ),
             const SizedBox(height: 60),
-            
+
             // Indicador de carga personalizado
             Container(
               padding: const EdgeInsets.all(20),

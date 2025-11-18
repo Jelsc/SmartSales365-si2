@@ -6,6 +6,8 @@ from django.http import HttpResponse
 from .prompt_parser import interpretar_prompt, detectar_multiples_reportes
 from .report_generator import ReporteGenerator
 from .exporters import PDFExporter, ExcelExporter
+from .models import ReporteGenerado
+from .serializers import ReporteGeneradoSerializer
 
 
 @api_view(['POST'])
@@ -192,5 +194,67 @@ def interpretar_comando(request):
     except Exception as e:
         return Response(
             {'error': str(e)},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def historial_reportes(request):
+    """
+    GET /api/reportes/historial/
+    
+    Obtiene el historial de reportes generados por el usuario autenticado.
+    
+    Query params opcionales:
+    - tipo: Filtrar por tipo de reporte (ventas, productos, clientes, ingresos)
+    - formato: Filtrar por formato (pdf, excel, json)
+    - limit: Limitar cantidad de resultados (default: 50)
+    - offset: Offset para paginación (default: 0)
+    
+    Returns:
+        Lista de reportes generados por el usuario
+    """
+    try:
+        # Obtener reportes del usuario autenticado
+        queryset = ReporteGenerado.objects.filter(usuario=request.user)
+        
+        # Filtros opcionales
+        tipo = request.query_params.get('tipo')
+        if tipo:
+            queryset = queryset.filter(tipo=tipo)
+        
+        formato = request.query_params.get('formato')
+        if formato:
+            queryset = queryset.filter(formato=formato)
+        
+        # Ordenar por fecha de creación (más recientes primero)
+        queryset = queryset.order_by('-created_at')
+        
+        # Paginación
+        limit = int(request.query_params.get('limit', 50))
+        offset = int(request.query_params.get('offset', 0))
+        
+        # Aplicar límite y offset
+        total = queryset.count()
+        reportes = queryset[offset:offset + limit]
+        
+        # Serializar los reportes
+        serializer = ReporteGeneradoSerializer(reportes, many=True)
+        
+        return Response({
+            'success': True,
+            'total': total,
+            'limit': limit,
+            'offset': offset,
+            'reportes': serializer.data
+        })
+    
+    except Exception as e:
+        return Response(
+            {
+                'error': str(e),
+                'tipo': type(e).__name__
+            },
             status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )

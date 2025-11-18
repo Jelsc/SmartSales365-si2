@@ -19,6 +19,19 @@ desktop.ini
 !frontend/.env.example
 !mobile/.env.example
 
+# Documentación con información sensible
+SUPERMEGAPROMPT*.md
+*.md
+!README.md
+
+# Credenciales Firebase
+firebase-credentials.json
+!firebase-credentials.json.example
+**/google-services.json
+!**/google-services.json.example
+**/firebase-messaging-sw.js
+!**/firebase-messaging-sw.js.example
+
 # === Python / Django ===
 __pycache__/
 *.py[cod]
@@ -89,3 +102,7 @@ ssl/
 
 # === Firebase ===
 backend/firebase-credentials.json
+
+# === Configuración Mobile (Credenciales) ===
+mobile/lib/config/stripe_config.dart
+mobile/lib/config/api_url.dart

@@ -6,4 +6,5 @@ app_name = 'reportes'
 urlpatterns = [
     path('generar/', views.generar_reporte, name='generar_reporte'),
     path('interpretar/', views.interpretar_comando, name='interpretar_comando'),
+    path('historial/', views.historial_reportes, name='historial_reportes'),
 ]
