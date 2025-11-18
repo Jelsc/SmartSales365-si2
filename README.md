@@ -3,12 +3,6 @@
 Monorepo para **PostgreSQL + Django REST (backend)**, **React + Vite (frontend)** y **Flutter (mobile)**.
 En DEV usamos Docker para **db + backend + frontend**. Flutter se corre fuera de Docker (emulador/dispositivo).
 
-> 🔍 **¡NUEVO!** Sistema de [Detección Automática de IP](./AUTODETECT-IP.md) para despliegues en AWS EC2 y otros entornos cloud. Consulta [AUTODETECT-IP.md](./AUTODETECT-IP.md) para más información.
-
-> 🔔 **¡NUEVO!** Sistema de [Notificaciones Push con Firebase](./NOTIFICACIONES_PUSH.md) integrado. Envía notificaciones en tiempo real a dispositivos móviles. Consulta [NOTIFICACIONES_PUSH.md](./NOTIFICACIONES_PUSH.md) para documentación completa y [IMPLEMENTAR_NOTIFICACIONES.md](./backend/IMPLEMENTAR_NOTIFICACIONES.md) para ejemplos de implementación en tus módulos.
-
-> 💳 **¡NUEVO!** Sistema de [Pagos con Stripe](./SISTEMA_PAGOS.md) completamente integrado. Procesa pagos con tarjetas de crédito/débito. Consulta [GUIA_RAPIDA_PAGOS.md](./GUIA_RAPIDA_PAGOS.md) para empezar a usar **INMEDIATAMENTE** y [PAGOS_QR_BOLIVIA.md](./PAGOS_QR_BOLIVIA.md) para opciones de QR en Bolivia.
-
 ## 📁 Estructura
 
 ```
@@ -32,8 +26,6 @@ SmartSales365-si2/
 - Git
 - (Opcional) Node 18+ si vas a tocar el frontend sin Docker
 - (Opcional) Python 3.11+ si vas a correr backend sin Docker
-- **Flutter** - Si no lo tienes instalado, consulta [INSTALAR_FLUTTER_WINDOWS.md](./INSTALAR_FLUTTER_WINDOWS.md)
-- **Android SDK** - Para compilar APK, consulta [INSTALAR_ANDROID_SDK.md](./INSTALAR_ANDROID_SDK.md)
 
 ### 1) Clonar y configurar variables
 

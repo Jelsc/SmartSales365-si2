@@ -20,7 +20,6 @@ desktop.ini
 !mobile/.env.example
 
 # Documentación con información sensible
-SUPERMEGAPROMPT*.md
 *.md
 !README.md
 
@@ -103,6 +102,4 @@ ssl/
 # === Firebase ===
 backend/firebase-credentials.json
 
-# === Configuración Mobile (Credenciales) ===
 mobile/lib/config/stripe_config.dart
-mobile/lib/config/api_url.dart
