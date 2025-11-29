@@ -135,6 +135,7 @@ INSTALLED_APPS = [
     "analytics",  # 🆕 Módulo de analytics y ML
     "reportes",  # 🆕 Módulo de reportes dinámicos
     "notifications",  # 🆕 Módulo de notificaciones push
+    "afp",  # 🆕 Módulo de Análisis Financiero & Patrimonial
     # Requisito para allauth
     "django.contrib.sites",
     # Allauth (core + cuentas + social)

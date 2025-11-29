@@ -47,6 +47,8 @@ urlpatterns = [
     path("api/reportes/", include("reportes.urls")),
     # Bitácora: registro de actividades del sistema
     path("api/bitacora/", include("bitacora.urls")),
+    # AFP: Análisis Financiero & Patrimonial
+    path("api/afp/", include("afp.urls")),
     # Auth social: endpoints para login social (navegador)
     path("accounts/", include("allauth.urls")),
 ]

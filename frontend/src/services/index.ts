@@ -67,3 +67,8 @@ export * from './carritoService';
 // SERVICIOS DE FAVORITOS
 // ========================================
 export * from './favoritosService';
+
+// ========================================
+// SERVICIOS DE ANÁLISIS FINANCIERO & PATRIMONIAL (AFP)
+// ========================================
+export * from './afpService';

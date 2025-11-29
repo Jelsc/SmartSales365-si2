@@ -25,6 +25,7 @@ import {
   Tag,
   FileText,
   LayoutGrid,
+  TrendingUp,
 } from "lucide-react";
 
 import { ChevronLeft, ChevronRight } from "lucide-react";
@@ -105,6 +106,12 @@ export default function Sidebar({ collapsed, setCollapsed }: SidebarProps) {
       name: "Reportes Inteligentes",
       icon: FileText,
       route: "/panel/reportes",
+    },
+    {
+      id: "afp",
+      name: "Análisis Financiero & Patrimonial",
+      icon: TrendingUp,
+      route: "/panel/afp",
     },
     {
       id: "usuarios-sistema",
