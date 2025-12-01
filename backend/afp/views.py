@@ -23,6 +23,8 @@ from .services import (
 )
 from .file_processor import ProcesadorEstadosFinancieros
 from .integracion_ventas import GeneradorEstadosDesdeVentas
+from .report_generator import GeneradorReportesAFP
+from django.http import HttpResponse
 
 logger = logging.getLogger(__name__)
 
@@ -32,6 +34,32 @@ class EmpresaViewSet(viewsets.ModelViewSet):
     queryset = Empresa.objects.all()
     serializer_class = EmpresaSerializer
     permission_classes = [IsAuthenticated]
+    
+    def list(self, request, *args, **kwargs):
+        """Asegurar que siempre exista al menos una empresa por defecto"""
+        # Crear empresa por defecto si no existe ninguna
+        if not Empresa.objects.exists():
+            empresa, created = Empresa.objects.get_or_create(
+                codigo='SMARTSALES365',
+                defaults={
+                    'nombre': 'SmartSales365',
+                    'activo': True
+                }
+            )
+            if created:
+                logger.info(f'Empresa por defecto creada automáticamente: {empresa.nombre}')
+        return super().list(request, *args, **kwargs)
+    
+    def create(self, request, *args, **kwargs):
+        """Sobrescribir create para usar get_or_create si el código ya existe"""
+        codigo = request.data.get('codigo')
+        if codigo:
+            # Si el código ya existe, devolver la empresa existente en lugar de error
+            empresa_existente = Empresa.objects.filter(codigo=codigo).first()
+            if empresa_existente:
+                serializer = self.get_serializer(empresa_existente)
+                return Response(serializer.data, status=status.HTTP_200_OK)
+        return super().create(request, *args, **kwargs)
 
 
 class PeriodoFinancieroViewSet(viewsets.ModelViewSet):
@@ -446,6 +474,69 @@ def informe_ejecutivo(request, periodo_id):
         'alertas': alertas,
         'insights': insights,
     })
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def exportar_pdf(request, periodo_id):
+    """
+    Exportar informe ejecutivo a PDF
+    GET /api/afp/exportar-pdf/{periodo_id}/
+    """
+    periodo = get_object_or_404(PeriodoFinanciero, id=periodo_id)
+    
+    try:
+        buffer = GeneradorReportesAFP.generar_pdf(periodo)
+        
+        # Crear respuesta HTTP con el PDF
+        response = HttpResponse(buffer.read(), content_type='application/pdf')
+        filename = f"informe_ejecutivo_{periodo.empresa.codigo}_{periodo.año}"
+        if periodo.mes:
+            filename += f"_mes{periodo.mes}"
+        elif periodo.trimestre:
+            filename += f"_T{periodo.trimestre}"
+        filename += ".pdf"
+        response['Content-Disposition'] = f'attachment; filename="{filename}"'
+        return response
+    except Exception as e:
+        logger.error(f"Error generando PDF: {str(e)}")
+        return Response(
+            {'error': f'Error al generar PDF: {str(e)}'},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def exportar_excel(request, periodo_id):
+    """
+    Exportar informe ejecutivo a Excel
+    GET /api/afp/exportar-excel/{periodo_id}/
+    """
+    periodo = get_object_or_404(PeriodoFinanciero, id=periodo_id)
+    
+    try:
+        buffer = GeneradorReportesAFP.generar_excel(periodo)
+        
+        # Crear respuesta HTTP con el Excel
+        response = HttpResponse(
+            buffer.read(),
+            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
+        filename = f"informe_ejecutivo_{periodo.empresa.codigo}_{periodo.año}"
+        if periodo.mes:
+            filename += f"_mes{periodo.mes}"
+        elif periodo.trimestre:
+            filename += f"_T{periodo.trimestre}"
+        filename += ".xlsx"
+        response['Content-Disposition'] = f'attachment; filename="{filename}"'
+        return response
+    except Exception as e:
+        logger.error(f"Error generando Excel: {str(e)}")
+        return Response(
+            {'error': f'Error al generar Excel: {str(e)}'},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
 
 
 class ConfiguracionAlertaViewSet(viewsets.ModelViewSet):

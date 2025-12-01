@@ -30,9 +30,9 @@ class RolSerializer(serializers.ModelSerializer):
 class UserSerializer(serializers.ModelSerializer):
     """Serializer base para usuarios"""
     rol = RolSerializer(read_only=True)
-    rol_id = serializers.IntegerField(write_only=True, required=False)
-    password = serializers.CharField(write_only=True, required=False)
-    password_confirm = serializers.CharField(write_only=True, required=False)
+    rol_id = serializers.IntegerField(write_only=True, required=False, allow_null=True)
+    password = serializers.CharField(write_only=True, required=False, allow_blank=True)
+    password_confirm = serializers.CharField(write_only=True, required=False, allow_blank=True)
     
     # Campos calculados
     puede_acceder_admin = serializers.BooleanField(read_only=True)
@@ -42,6 +42,12 @@ class UserSerializer(serializers.ModelSerializer):
     # Campos para las relaciones (read/write)
     personal_id = serializers.IntegerField(required=False, allow_null=True)
     conductor_id = serializers.IntegerField(required=False, allow_null=True)
+    
+    # Campos opcionales que pueden ser null
+    direccion = serializers.CharField(required=False, allow_null=True, allow_blank=True, max_length=255)
+    ci = serializers.CharField(required=False, allow_null=True, allow_blank=True, max_length=20)
+    telefono = serializers.CharField(required=False, allow_null=True, allow_blank=True, max_length=20)
+    
 
     class Meta:
         model = CustomUser
@@ -70,18 +76,49 @@ class UserSerializer(serializers.ModelSerializer):
             "last_login",
         ]
         read_only_fields = ["id", "date_joined", "last_login", "puede_acceder_admin", "es_administrativo", "es_cliente"]
+        extra_kwargs = {
+            'username': {'required': False},
+            'email': {'required': False},
+            'first_name': {'required': False, 'allow_blank': True},
+            'last_name': {'required': False, 'allow_blank': True},
+        }
 
+    def validate_ci(self, value):
+        """Validar CI única al actualizar"""
+        if value:  # Solo validar si se proporciona un valor
+            queryset = CustomUser.objects.filter(ci=value)
+            # Si estamos actualizando, excluir el usuario actual
+            if self.instance:
+                queryset = queryset.exclude(pk=self.instance.pk)
+            if queryset.exists():
+                raise serializers.ValidationError("Ya existe un usuario con esta cédula de identidad")
+        return value if value else None  # Convertir cadena vacía a None
+    
+    def validate_direccion(self, value):
+        """Convertir cadena vacía a None"""
+        return value if value else None
+    
+    def validate_telefono(self, value):
+        """Convertir cadena vacía a None"""
+        return value if value else None
+    
+    def validate_email(self, value):
+        """Validar email único al actualizar"""
+        if value:
+            queryset = CustomUser.objects.filter(email=value)
+            # Si estamos actualizando, excluir el usuario actual
+            if self.instance:
+                queryset = queryset.exclude(pk=self.instance.pk)
+            if queryset.exists():
+                raise serializers.ValidationError("Ya existe un usuario con este email")
+        return value
+    
     def validate(self, attrs):
         """Validaciones generales"""
         # Validar contraseñas si se proporcionan
         if 'password' in attrs and 'password_confirm' in attrs:
             if attrs['password'] != attrs['password_confirm']:
                 raise serializers.ValidationError("Las contraseñas no coinciden")
-        
-        # Validar CI único si se proporciona
-        if 'ci' in attrs and attrs['ci']:
-            if CustomUser.objects.filter(ci=attrs['ci']).exists():
-                raise serializers.ValidationError({"ci": "Ya existe un usuario con esta cédula de identidad"})
         
         return attrs
 
@@ -126,13 +163,14 @@ class UserSerializer(serializers.ModelSerializer):
 
     def update(self, instance, validated_data):
         """Actualizar un usuario existente"""
+        # Extraer campos especiales que no van directamente al modelo
         password = validated_data.pop('password', None)
         password_confirm = validated_data.pop('password_confirm', None)
         rol_id = validated_data.pop('rol_id', None)
         personal_id = validated_data.pop('personal_id', None)
         conductor_id = validated_data.pop('conductor_id', None)
         
-        # Actualizar campos básicos
+        # Actualizar campos básicos del modelo
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
         
@@ -141,34 +179,36 @@ class UserSerializer(serializers.ModelSerializer):
             instance.set_password(password)
         
         # Actualizar rol si se proporciona
-        if rol_id:
+        if rol_id is not None:
             try:
                 rol = Rol.objects.get(id=rol_id)
                 instance.rol = rol
             except Rol.DoesNotExist:
                 pass
         
-        # Actualizar personal si se proporciona
-        if personal_id:
-            try:
-                from personal.models import Personal
-                personal = Personal.objects.get(id=personal_id)
-                instance.personal = personal
-            except:
-                pass
-        elif personal_id is None:  # Si se envía None, limpiar la relación
-            instance.personal = None
+        # Actualizar personal si se especificó
+        if 'personal_id' in self.initial_data if hasattr(self, 'initial_data') else personal_id is not None:
+            if personal_id:
+                try:
+                    from personal.models import Personal
+                    personal = Personal.objects.get(id=personal_id)
+                    instance.personal = personal
+                except:
+                    pass
+            else:
+                instance.personal = None
         
-        # Actualizar conductor si se proporciona
-        if conductor_id:
-            try:
-                from conductores.models import Conductor
-                conductor = Conductor.objects.get(id=conductor_id)
-                instance.conductor = conductor
-            except:
-                pass
-        elif conductor_id is None:  # Si se envía None, limpiar la relación
-            instance.conductor = None
+        # Actualizar conductor si se especificó
+        if 'conductor_id' in self.initial_data if hasattr(self, 'initial_data') else conductor_id is not None:
+            if conductor_id:
+                try:
+                    from conductores.models import Conductor
+                    conductor = Conductor.objects.get(id=conductor_id)
+                    instance.conductor = conductor
+                except:
+                    pass
+            else:
+                instance.conductor = None
         
         instance.save()
         return instance

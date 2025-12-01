@@ -17,6 +17,9 @@ class CalculadoraRatios:
         # Ratio Corriente
         if balance.pasivo_corriente > 0:
             ratios['liquidez_corriente'] = balance.activo_corriente / balance.pasivo_corriente
+        elif balance.activo_corriente > 0:
+            # Si hay activos pero no pasivos, la liquidez es excelente (infinito prácticamente)
+            ratios['liquidez_corriente'] = Decimal('999999')  # Valor muy alto para indicar excelente liquidez
         else:
             ratios['liquidez_corriente'] = Decimal('0')
         
@@ -24,6 +27,9 @@ class CalculadoraRatios:
         activo_liquido = balance.activo_corriente - balance.inventarios
         if balance.pasivo_corriente > 0:
             ratios['prueba_acida'] = activo_liquido / balance.pasivo_corriente
+        elif activo_liquido > 0:
+            # Si hay activos líquidos pero no pasivos, la prueba ácida es excelente
+            ratios['prueba_acida'] = Decimal('999999')  # Valor muy alto para indicar excelente liquidez
         else:
             ratios['prueba_acida'] = Decimal('0')
         
@@ -45,7 +51,11 @@ class CalculadoraRatios:
         
         if inventario_promedio > 0:
             ratios['rotacion_inventario'] = estado.costo_ventas / inventario_promedio
-            ratios['dias_inventario'] = Decimal('365') / ratios['rotacion_inventario']
+            # Evitar división por cero
+            if ratios['rotacion_inventario'] > 0:
+                ratios['dias_inventario'] = Decimal('365') / ratios['rotacion_inventario']
+            else:
+                ratios['dias_inventario'] = Decimal('0')
         else:
             ratios['rotacion_inventario'] = Decimal('0')
             ratios['dias_inventario'] = Decimal('0')
@@ -57,7 +67,11 @@ class CalculadoraRatios:
         
         if cxc_promedio > 0:
             ratios['rotacion_cxc'] = estado.ventas_netas / cxc_promedio
-            ratios['dias_cobro'] = Decimal('365') / ratios['rotacion_cxc']
+            # Evitar división por cero
+            if ratios['rotacion_cxc'] > 0:
+                ratios['dias_cobro'] = Decimal('365') / ratios['rotacion_cxc']
+            else:
+                ratios['dias_cobro'] = Decimal('0')
         else:
             ratios['rotacion_cxc'] = Decimal('0')
             ratios['dias_cobro'] = Decimal('0')
@@ -69,7 +83,11 @@ class CalculadoraRatios:
         
         if cxp_promedio > 0:
             ratios['rotacion_cxp'] = estado.costo_ventas / cxp_promedio
-            ratios['dias_pago'] = Decimal('365') / ratios['rotacion_cxp']
+            # Evitar división por cero
+            if ratios['rotacion_cxp'] > 0:
+                ratios['dias_pago'] = Decimal('365') / ratios['rotacion_cxp']
+            else:
+                ratios['dias_pago'] = Decimal('0')
         else:
             ratios['rotacion_cxp'] = Decimal('0')
             ratios['dias_pago'] = Decimal('0')
@@ -143,6 +161,13 @@ class CalculadoraRatios:
             apalancamiento = activos_promedio / patrimonio_promedio
             ratios['roe_dupont'] = ratios['margen_neto'] * ratios['rotacion_activos'] * apalancamiento
             ratios['apalancamiento'] = apalancamiento
+        elif activos_promedio > 0:
+            # Si hay activos pero no patrimonio (primer periodo sin capital social),
+            # el apalancamiento es infinito, pero podemos calcular ROE como ROA
+            # ya que ROE = ROA cuando no hay deuda
+            ratios['apalancamiento'] = Decimal('999999')  # Valor muy alto para indicar apalancamiento infinito
+            # Si no hay patrimonio, el ROE no es aplicable, pero mostramos el ROA como referencia
+            ratios['roe_dupont'] = ratios['roa']  # En este caso, ROE = ROA (sin deuda ni patrimonio)
         else:
             ratios['roe_dupont'] = Decimal('0')
             ratios['apalancamiento'] = Decimal('0')
@@ -178,6 +203,22 @@ class AnalizadorPatrimonial:
         total_activo = balance.total_activo
         total_pasivo_patrimonio = balance.pasivo_mas_patrimonio
         
+        # Si hay activos pero no hay pasivo+patrimonio, usar activos como base
+        # Esto puede pasar si el balance no cuadra correctamente
+        # En este caso, el patrimonio debería ser igual a los activos
+        if total_pasivo_patrimonio == 0 and total_activo > 0:
+            total_pasivo_patrimonio = total_activo
+            # Calcular el patrimonio que debería existir (activos - pasivos)
+            patrimonio_esperado = total_activo - balance.total_pasivo
+            # Si el patrimonio esperado es mayor que 0, mostrar utilidades_acumuladas como porcentaje
+            if patrimonio_esperado > 0:
+                # Ajustar utilidades_acumuladas para el cálculo del porcentaje
+                utilidades_ajustadas = patrimonio_esperado
+            else:
+                utilidades_ajustadas = Decimal('0')
+        else:
+            utilidades_ajustadas = balance.utilidades_acumuladas
+        
         if total_activo > 0:
             analisis['activo'] = {
                 'caja_bancos': (balance.caja_bancos / total_activo) * 100,
@@ -190,6 +231,7 @@ class AnalizadorPatrimonial:
                 'otros_activos_no_corrientes': (balance.otros_activos_no_corrientes / total_activo) * 100,
             }
         
+        # Siempre calcular pasivo_patrimonio
         if total_pasivo_patrimonio > 0:
             analisis['pasivo_patrimonio'] = {
                 'cuentas_por_pagar': (balance.cuentas_por_pagar / total_pasivo_patrimonio) * 100,
@@ -200,8 +242,22 @@ class AnalizadorPatrimonial:
                 'otros_pasivos_no_corrientes': (balance.otros_pasivos_no_corrientes / total_pasivo_patrimonio) * 100,
                 'capital_social': (balance.capital_social / total_pasivo_patrimonio) * 100,
                 'reservas': (balance.reservas / total_pasivo_patrimonio) * 100,
-                'utilidades_acumuladas': (balance.utilidades_acumuladas / total_pasivo_patrimonio) * 100,
+                'utilidades_acumuladas': (utilidades_ajustadas / total_pasivo_patrimonio) * 100,
                 'otros_patrimonios': (balance.otros_patrimonios / total_pasivo_patrimonio) * 100,
+            }
+        else:
+            # Si no hay pasivo ni patrimonio, mostrar todos en 0
+            analisis['pasivo_patrimonio'] = {
+                'cuentas_por_pagar': Decimal('0'),
+                'prestamos_corto_plazo': Decimal('0'),
+                'pasivos_acreedores': Decimal('0'),
+                'otros_pasivos_corrientes': Decimal('0'),
+                'prestamos_largo_plazo': Decimal('0'),
+                'otros_pasivos_no_corrientes': Decimal('0'),
+                'capital_social': Decimal('0'),
+                'reservas': Decimal('0'),
+                'utilidades_acumuladas': Decimal('0'),
+                'otros_patrimonios': Decimal('0'),
             }
         
         return analisis
@@ -268,6 +324,9 @@ class AnalizadorPatrimonial:
         # Cobertura de activos corrientes vs pasivos corrientes
         if balance.pasivo_corriente > 0:
             estructura['cobertura_activos_corrientes'] = balance.activo_corriente / balance.pasivo_corriente
+        elif balance.activo_corriente > 0:
+            # Si hay activos pero no pasivos, la cobertura es excelente (infinito prácticamente)
+            estructura['cobertura_activos_corrientes'] = Decimal('999999')
         else:
             estructura['cobertura_activos_corrientes'] = Decimal('0')
         

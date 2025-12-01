@@ -162,15 +162,42 @@ export interface InformeEjecutivo {
 class AfpService {
   // Empresas
   async obtenerEmpresas(): Promise<Empresa[]> {
-    const response = await apiRequest<Empresa[]>(
-      '/api/afp/empresas/',
-      { method: 'GET' }
-    );
-    // Asegurar que siempre devolvamos un array
-    if (Array.isArray(response.data)) {
-      return response.data;
+    try {
+      const response = await apiRequest<Empresa[] | { results: Empresa[] }>(
+        '/api/afp/empresas/',
+        { method: 'GET' }
+      );
+      
+      console.log('Respuesta completa de obtenerEmpresas:', response);
+      
+      // DRF puede devolver directamente un array o un objeto paginado con 'results'
+      // apiRequest lo parsea y lo pone en response.data
+      if (Array.isArray(response.data)) {
+        console.log(`Se encontraron ${response.data.length} empresa(s)`);
+        return response.data;
+      }
+      
+      // Si es un objeto paginado, extraer el array 'results'
+      if (response.data && typeof response.data === 'object' && 'results' in response.data) {
+        const results = (response.data as { results: Empresa[] }).results;
+        if (Array.isArray(results)) {
+          console.log(`Se encontraron ${results.length} empresa(s) en respuesta paginada`);
+          return results;
+        }
+      }
+      
+      // Si data es null o undefined, puede que no haya empresas
+      if (response.data === null || response.data === undefined) {
+        console.info('No hay empresas en la base de datos (response.data es null/undefined)');
+        return [];
+      }
+      
+      console.warn('obtenerEmpresas: respuesta inesperada', response);
+      return [];
+    } catch (error) {
+      console.error('Error en obtenerEmpresas:', error);
+      throw error;
     }
-    return [];
   }
 
   async crearEmpresa(empresa: Partial<Empresa>): Promise<Empresa> {
@@ -189,13 +216,20 @@ class AfpService {
     const url = empresaId 
       ? `/api/afp/periodos/?empresa_id=${empresaId}`
       : '/api/afp/periodos/';
-    const response = await apiRequest<PeriodoFinanciero[]>(
+    const response = await apiRequest<PeriodoFinanciero[] | { results: PeriodoFinanciero[] }>(
       url,
       { method: 'GET' }
     );
-    // Asegurar que siempre devolvamos un array
+    // DRF puede devolver directamente un array o un objeto paginado con 'results'
     if (Array.isArray(response.data)) {
       return response.data;
+    }
+    // Si es un objeto paginado, extraer el array 'results'
+    if (response.data && typeof response.data === 'object' && 'results' in response.data) {
+      const results = (response.data as { results: PeriodoFinanciero[] }).results;
+      if (Array.isArray(results)) {
+        return results;
+      }
     }
     return [];
   }

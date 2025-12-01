@@ -18,6 +18,8 @@ import {
   ShoppingCart,
   Package,
   LayoutGrid,
+  TrendingUp,
+  FileText,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
@@ -38,10 +40,15 @@ interface ModuleOption {
 
 const sidebarModules: SidebarModule[] = [
   {
-    id: "dashboard",
-    name: "Dashboard Analytics",
-    icon: BarChart3,
-    route: "/panel/dashboard",
+    id: "business-intelligence",
+    name: "Business Intelligence",
+    icon: TrendingUp,
+    route: "/panel/afp",
+    options: [
+      { id: 'dashboard', label: 'Dashboard Analytics', icon: BarChart3, route: '/panel/dashboard' },
+      { id: 'reportes', label: 'Reportes Inteligentes', icon: FileText, route: '/panel/reportes' },
+      { id: 'afp', label: 'Análisis Financiero & Patrimonial', icon: TrendingUp, route: '/panel/afp' },
+    ],
   },
   {
     id: "usuarios-sistema",
@@ -235,12 +242,12 @@ export default function AdminPage() {
                   {(selected?.options?.length
                     ? selected.options
                     : [
-                        {
-                          id: "ir",
-                          label: "Ir al módulo",
-                          route: selected?.route || "/",
-                        },
-                      ]
+                      {
+                        id: "ir",
+                        label: "Ir al módulo",
+                        route: selected?.route || "/",
+                      },
+                    ]
                   ).map((opt) => (
                     <button
                       key={opt.id}

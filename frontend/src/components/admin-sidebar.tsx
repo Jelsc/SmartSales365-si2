@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-  import SmartSalesIcon from "./app-logo";
+import SmartSalesIcon from "./app-logo";
 import {
   BarChart3,
   Users,
@@ -96,22 +96,30 @@ export default function Sidebar({ collapsed, setCollapsed }: SidebarProps) {
       route: "/panel/home",
     },
     {
-      id: "dashboard",
-      name: "Dashboard Analytics",
-      icon: BarChart3,
-      route: "/panel/dashboard",
-    },
-    {
-      id: "reportes",
-      name: "Reportes Inteligentes",
-      icon: FileText,
-      route: "/panel/reportes",
-    },
-    {
-      id: "afp",
-      name: "Análisis Financiero & Patrimonial",
+      id: "business-intelligence",
+      name: "Business Intelligence",
       icon: TrendingUp,
-      route: "/panel/afp",
+
+      submodules: [
+        {
+          id: "dashboard",
+          name: "Dashboard Analytics",
+          icon: BarChart3,
+          route: "/panel/dashboard",
+        },
+        {
+          id: "reportes",
+          name: "Reportes Inteligentes",
+          icon: FileText,
+          route: "/panel/reportes",
+        },
+        {
+          id: "afp",
+          name: "Análisis Financiero & Patrimonial",
+          icon: TrendingUp,
+          route: "/panel/afp",
+        },
+      ],
     },
     {
       id: "usuarios-sistema",
@@ -193,19 +201,16 @@ export default function Sidebar({ collapsed, setCollapsed }: SidebarProps) {
 
   return (
     <aside
-      className={`h-full bg-sky-100 relative border-r border-gray-200 transition-all duration-300 ${
-        collapsed ? "w-[64px]" : "w-[250px]"
-      }`}
+      className={`h-full bg-sky-100 relative border-r border-gray-200 transition-all duration-300 ${collapsed ? "w-[64px]" : "w-[250px]"
+        }`}
     >
       <div
-        className={`p-6 flex flex-col h-full ${
-          collapsed ? "items-center px-2" : ""
-        }`}
+        className={`p-6 flex flex-col h-full ${collapsed ? "items-center px-2" : ""
+          }`}
       >
         <div
-          className={`flex items-center gap-2 mb-6 ${
-            collapsed ? "justify-center" : ""
-          }`}
+          className={`flex items-center gap-2 mb-6 ${collapsed ? "justify-center" : ""
+            }`}
         >
           {!collapsed && (
             <Link
@@ -240,11 +245,10 @@ export default function Sidebar({ collapsed, setCollapsed }: SidebarProps) {
                     navigate(module.route);
                   }
                 }}
-                className={`w-full flex items-center px-2 py-2 text-sm rounded-lg text-left transition-colors ${
-                  isModuleActive(module)
-                    ? "bg-blue-400 text-white"
-                    : "text-gray-700 hover:bg-gray-100"
-                }`}
+                className={`w-full flex items-center px-2 py-2 text-sm rounded-lg text-left transition-colors ${isModuleActive(module)
+                  ? "bg-blue-400 text-white"
+                  : "text-gray-700 hover:bg-gray-100"
+                  }`}
               >
                 <module.icon
                   className={collapsed ? "w-6 h-6 mx-auto" : "w-5 h-5 mr-3"}
@@ -275,11 +279,10 @@ export default function Sidebar({ collapsed, setCollapsed }: SidebarProps) {
                         onClick={() =>
                           submodule.route && navigate(submodule.route)
                         }
-                        className={`w-full flex items-center px-2 py-1.5 text-sm rounded-md text-left transition-colors ${
-                          submodule.route && isRouteActive(submodule.route)
-                            ? "bg-blue-300 text-white"
-                            : "text-gray-600 hover:bg-gray-100"
-                        }`}
+                        className={`w-full flex items-center px-2 py-1.5 text-sm rounded-md text-left transition-colors ${submodule.route && isRouteActive(submodule.route)
+                          ? "bg-blue-300 text-white"
+                          : "text-gray-600 hover:bg-gray-100"
+                          }`}
                       >
                         <submodule.icon className="w-4 h-4 mr-2" />
                         <span>{submodule.name}</span>

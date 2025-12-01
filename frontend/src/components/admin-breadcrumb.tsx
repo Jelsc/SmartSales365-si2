@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { ChevronRight, Home } from 'lucide-react';
-import { 
-  BarChart3, 
-  Users, 
+import {
+  BarChart3,
+  Users,
   UserCog,
   ShieldCheck,
   BookOpen,
@@ -14,22 +14,34 @@ import {
   Truck,
   ShoppingCart,
   Package,
-  LayoutGrid
+  LayoutGrid,
+  TrendingUp,
+  FileText
 } from 'lucide-react';
 
 // Define la estructura del sidebar para mantener consistencia
 // Esta estructura debe coincidir con la definida en admin-sidebar.tsx
 const sidebarStructure = [
   { id: 'Panel de Adm.', name: 'Panel de Adm.', icon: Home, route: '/admin/home' },
-  { 
-    id: 'usuarios-sistema', 
-    name: 'Usuarios y Seguridad', 
+  {
+    id: 'business-intelligence',
+    name: 'Business Intelligence',
+    icon: TrendingUp,
+    submodules: [
+      { id: 'dashboard', name: 'Dashboard Analytics', icon: BarChart3, route: '/panel/dashboard' },
+      { id: 'reportes', name: 'Reportes Inteligentes', icon: FileText, route: '/panel/reportes' },
+      { id: 'afp', name: 'Análisis Financiero & Patrimonial', icon: TrendingUp, route: '/panel/afp' },
+    ],
+  },
+  {
+    id: 'usuarios-sistema',
+    name: 'Usuarios y Seguridad',
     icon: ShieldCheck,
     submodules: [
       { id: 'permisos', name: 'Permisos', icon: ShieldCheck, route: '/admin/permisos' },
       { id: 'roles', name: 'Roles', icon: Users, route: '/admin/roles' },
       { id: 'usuarios', name: 'Usuarios', icon: Users, route: '/admin/usuarios' },
-    ] 
+    ]
   },
   {
     id: 'administracion-interna',
@@ -83,7 +95,7 @@ sidebarStructure.forEach(module => {
       routeMap[key] = module.name;
     }
   }
-  
+
   if (module.submodules) {
     module.submodules.forEach(submodule => {
       if (submodule.route) {
@@ -91,10 +103,10 @@ sidebarStructure.forEach(module => {
         const key = segments[segments.length - 1];
         if (key) {
           routeMap[key] = submodule.name;
-          
+
           // Agregar al mapa de módulos
-          moduleMap[key] = { 
-            name: module.name, 
+          moduleMap[key] = {
+            name: module.name,
             parent: 'admin',
             path: submodule.route
           };
@@ -114,7 +126,7 @@ export default function AdminBreadcrumb() {
   const location = useLocation();
   const pathnames = location.pathname.split('/').filter((x) => x);
   const [isMobile, setIsMobile] = useState(false);
-  
+
   // Hook para detectar si estamos en un dispositivo móvil
   useEffect(() => {
     const checkIsMobile = () => {
@@ -122,42 +134,42 @@ export default function AdminBreadcrumb() {
     };
 
     checkIsMobile();
-    
+
     // Añadir listener para cambios en el tamaño de la ventana
     window.addEventListener('resize', checkIsMobile);
-    
+
     // Limpiar el listener cuando el componente se desmonte
     return () => window.removeEventListener('resize', checkIsMobile);
   }, []);
-  
+
   // No mostrar breadcrumbs para la página principal o en dispositivos móviles
   if (pathnames.length === 0 || (pathnames.length === 1 && pathnames[0] === 'admin') || isMobile) {
     return null;
   }
-  
+
   const breadcrumbs: BreadcrumbItem[] = [];
-  
+
   // Inicio siempre presente
   breadcrumbs.push({
     name: 'Inicio',
     path: '/admin',
     icon: Home
   });
-  
+
   // Encontrar la página actual en la estructura del sidebar
   let currentModule = null;
   let currentSubmodule = null;
-  
+
   // Último segmento de la ruta actual
   const lastSegment = pathnames[pathnames.length - 1];
-  
+
   // Buscar en la estructura del sidebar
   for (const module of sidebarStructure) {
     if (module.route && module.route.includes(`/${lastSegment}`)) {
       currentModule = module;
       break;
     }
-    
+
     if (module.submodules) {
       for (const submodule of module.submodules) {
         if (submodule.route && submodule.route.includes(`/${lastSegment}`)) {
@@ -167,10 +179,10 @@ export default function AdminBreadcrumb() {
         }
       }
     }
-    
+
     if (currentModule) break;
   }
-  
+
   // Construir los breadcrumbs basados en la estructura del sidebar
   if (currentModule) {
     if (currentModule.submodules && currentSubmodule) {
@@ -180,7 +192,7 @@ export default function AdminBreadcrumb() {
         path: `/admin/${currentModule.id}`,
         icon: currentModule.icon
       });
-      
+
       // Luego agregar el submódulo
       breadcrumbs.push({
         name: currentSubmodule.name,
@@ -198,13 +210,13 @@ export default function AdminBreadcrumb() {
   } else {
     // Fallback al método anterior si no se encuentra en la estructura
     let currentPath = '';
-    
+
     pathnames.forEach((path, i) => {
       currentPath += `/${path}`;
-      
+
       // Ignorar el prefijo 'admin' en los breadcrumbs intermedios
       if (path === 'admin' && i === 0) return;
-      
+
       // Verificar si el path actual es parte de un módulo
       if (moduleMap[path] && i === 1) {
         breadcrumbs.push({
@@ -212,7 +224,7 @@ export default function AdminBreadcrumb() {
           path: moduleMap[path].path,
         });
       }
-      
+
       // Agregar el path actual
       breadcrumbs.push({
         name: routeMap[path] || path,
@@ -220,7 +232,7 @@ export default function AdminBreadcrumb() {
       });
     });
   }
-  
+
   return (
     <div className="flex items-center text-sm" style={{ color: '#1d4ed8' }}> {/* blue-700 */}
       {breadcrumbs.map((breadcrumb, i) => (

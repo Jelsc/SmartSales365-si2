@@ -95,13 +95,13 @@ class CargarArchivoSerializer(serializers.Serializer):
 
 class EscenarioWhatIfSerializer(serializers.Serializer):
     """Serializer para escenarios what-if"""
-    periodo_id = serializers.IntegerField(required=True)
+    # periodo_id no es necesario porque se obtiene de la URL
     variacion_precio = serializers.DecimalField(
-        max_digits=5, decimal_places=2, default=0,
+        max_digits=5, decimal_places=2, required=False, default=0,
         help_text="Variación porcentual de precio"
     )
     variacion_costo = serializers.DecimalField(
-        max_digits=5, decimal_places=2, default=0,
+        max_digits=5, decimal_places=2, required=False, default=0,
         help_text="Variación porcentual de costo"
     )
     dias_cobro = serializers.IntegerField(

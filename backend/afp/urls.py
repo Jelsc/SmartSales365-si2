@@ -11,5 +11,7 @@ urlpatterns = [
     path('', include(router.urls)),
     path('cargar-archivo/', views.cargar_archivo_estados, name='cargar_archivo'),
     path('informe-ejecutivo/<int:periodo_id>/', views.informe_ejecutivo, name='informe_ejecutivo'),
+    path('exportar-pdf/<int:periodo_id>/', views.exportar_pdf, name='exportar_pdf'),
+    path('exportar-excel/<int:periodo_id>/', views.exportar_excel, name='exportar_excel'),
 ]
 

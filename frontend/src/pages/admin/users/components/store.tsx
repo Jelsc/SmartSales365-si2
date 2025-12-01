@@ -40,8 +40,8 @@ const baseUsuarioSchema = z.object({
   first_name: z.string().min(2, 'El nombre debe tener al menos 2 caracteres'),
   last_name: z.string().min(2, 'El apellido debe tener al menos 2 caracteres'),
   telefono: z.string().min(8, 'El teléfono debe tener al menos 8 caracteres').optional(),
-  direccion: z.string().optional(),
-  ci: z.string().optional(),
+  direccion: z.preprocess((val) => val === null || val === undefined ? '' : val, z.string().optional()),
+  ci: z.preprocess((val) => val === null || val === undefined ? '' : val, z.string().optional()),
   fecha_nacimiento: z.date().nullable().optional(),
   rol_id: z.number().optional(),
   is_active: z.boolean(), // Unificado con es_activo
@@ -142,9 +142,9 @@ export function UsuarioStore({
         email: initialData.email,
         first_name: initialData.first_name,
         last_name: initialData.last_name,
-        telefono: initialData.telefono,
-        direccion: initialData.direccion,
-        ci: initialData.ci,
+        telefono: initialData.telefono || '',
+        direccion: initialData.direccion || '',
+        ci: initialData.ci || '',
         fecha_nacimiento: initialData.fecha_nacimiento ? new Date(initialData.fecha_nacimiento) : null,
         rol_id: initialData.rol?.id || undefined,
         is_active: initialData.is_active, // Unificado con es_activo
@@ -191,7 +191,15 @@ export function UsuarioStore({
   }, [conductorValue]);
 
   const handleSubmit = async (data: UserFormData) => {
-    const success = await onSubmit(data);
+    // Convertir cadenas vacías a null para campos opcionales antes de enviar
+    const processedData = {
+      ...data,
+      direccion: data.direccion === '' ? null : data.direccion,
+      ci: data.ci === '' ? null : data.ci,
+      telefono: data.telefono === '' ? null : data.telefono,
+    };
+    
+    const success = await onSubmit(processedData);
     if (success) {
       form.reset();
       onClose();

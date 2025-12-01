@@ -61,14 +61,16 @@ class GeneradorEstadosDesdeVentas:
         )
         
         # Intentar obtener costo de productos
-        # Si no existe campo 'costo', usar 70% del precio como estimación
+        # Si existe campo 'costo', usarlo; si no, usar 70% del precio como estimación
         costo_ventas = Decimal('0')
         for item in items_vendidos:
             producto = item.producto
-            # Si tienes un campo costo en Producto, úsalo:
-            # costo_unitario = getattr(producto, 'costo', producto.precio * Decimal('0.7'))
-            # Por ahora, estimamos 70% del precio como costo
-            costo_unitario = item.precio_unitario * Decimal('0.7')
+            # Intentar obtener costo del producto (si existe el campo)
+            if hasattr(producto, 'costo') and producto.costo is not None:
+                costo_unitario = producto.costo
+            else:
+                # Si no existe campo costo, estimar 70% del precio como costo
+                costo_unitario = item.precio_unitario * Decimal('0.7')
             costo_ventas += costo_unitario * item.cantidad
         
         # Gastos operativos: Puedes configurarlos manualmente o desde otros módulos
@@ -150,11 +152,13 @@ class GeneradorEstadosDesdeVentas:
         )['total'] or Decimal('0')
         
         # INVENTARIOS: Valor del stock actual
-        # Usar precio de compra si existe, sino precio de venta
-        inventarios = Producto.objects.aggregate(
-            total=Sum(F('stock') * F('precio'))
-        )['total'] or Decimal('0')
-        # Si tienes costo, usar: Sum(F('stock') * F('costo'))
+        # Usar costo si existe, sino precio de venta
+        inventarios = Decimal('0')
+        for producto in Producto.objects.all():
+            if producto.stock > 0:
+                # Si tiene costo, usar costo; si no, usar precio
+                valor_unitario = producto.costo if (hasattr(producto, 'costo') and producto.costo is not None) else producto.precio
+                inventarios += Decimal(str(producto.stock)) * valor_unitario
         
         # OTROS ACTIVOS CORRIENTES: Puedes configurarlo manualmente
         otros_activos_corrientes = Decimal('0')
@@ -190,9 +194,57 @@ class GeneradorEstadosDesdeVentas:
             except:
                 pass
         
+        # Si no hay periodos anteriores y no hay utilidades acumuladas,
+        # usar la utilidad neta del periodo actual como patrimonio inicial
+        # (esto es para el primer periodo de un negocio nuevo)
+        if utilidades_acumuladas == 0:
+            try:
+                estado_actual = periodo.estado_resultados
+                if estado_actual.utilidad_neta > 0:
+                    # Si hay utilidad neta positiva, usarla como patrimonio inicial
+                    utilidades_acumuladas = estado_actual.utilidad_neta
+            except EstadoResultados.DoesNotExist:
+                # Si el estado de resultados aún no existe, intentar calcularlo desde las ventas
+                # Esto puede pasar si se genera el balance antes del estado de resultados
+                pass
+            except:
+                pass
+        
+        # Inicializar patrimonio base
         capital_social = Decimal('0')  # Configurar manualmente
         reservas = Decimal('0')  # Configurar manualmente
         otros_patrimonios = Decimal('0')
+        
+        # Calcular activos y pasivos totales para asegurar que el balance cuadre
+        activos_totales = (
+            pagos_completados + pedidos_por_cobrar + inventarios + otros_activos_corrientes +
+            propiedades_planta_equipo + inversiones_largo_plazo + intangibles + otros_activos_no_corrientes
+        )
+        pasivos_totales = (
+            cuentas_por_pagar + prestamos_corto_plazo + pasivos_acreedores + otros_pasivos_corrientes +
+            prestamos_largo_plazo + otros_pasivos_no_corrientes
+        )
+        
+        # Calcular patrimonio necesario para que el balance cuadre
+        # Balance debe cuadrar: Activos = Pasivos + Patrimonio
+        # Por lo tanto: Patrimonio = Activos - Pasivos
+        patrimonio_necesario = activos_totales - pasivos_totales
+        
+        # Calcular patrimonio actual (sin incluir el ajuste aún)
+        patrimonio_actual = capital_social + reservas + utilidades_acumuladas + otros_patrimonios
+        
+        # Asegurar que el patrimonio sea al menos el necesario para que el balance cuadre
+        # Si el patrimonio actual es menor al necesario, ajustar utilidades_acumuladas
+        if patrimonio_actual < patrimonio_necesario:
+            # La diferencia debe ir a utilidades_acumuladas
+            diferencia = patrimonio_necesario - patrimonio_actual
+            utilidades_acumuladas += diferencia
+        # Si el patrimonio actual es mayor, mantenerlo (puede ser de periodos anteriores)
+        
+        # Log para debugging (puedes removerlo después)
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.info(f"Balance cálculo - Activos: {activos_totales}, Pasivos: {pasivos_totales}, Patrimonio necesario: {patrimonio_necesario}, Utilidades acumuladas: {utilidades_acumuladas}")
         
         # Crear o actualizar Balance General
         balance, created = BalanceGeneral.objects.update_or_create(

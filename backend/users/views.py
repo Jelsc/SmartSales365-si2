@@ -66,6 +66,36 @@ class UserViewSet(viewsets.ModelViewSet):
             descripcion=f"Usuario {user.username} creado por {self.request.user.username}",
             modulo="GESTION_USUARIOS"
         )
+    
+    def update(self, request, *args, **kwargs):
+        """Actualizar usuario con soporte para actualizaciones parciales"""
+        partial = kwargs.pop('partial', True)  # Por defecto permitir parcial
+        instance = self.get_object()
+        serializer = self.get_serializer(instance, data=request.data, partial=partial)
+        
+        if serializer.is_valid():
+            self.perform_update(serializer)
+            return Response(serializer.data)
+        
+        # Log de errores para debugging
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"Error al actualizar usuario {instance.id}: {serializer.errors}")
+        logger.error(f"Datos recibidos: {request.data}")
+        
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+    def perform_update(self, serializer):
+        """Actualizar usuario con bitácora"""
+        user = serializer.save()
+        
+        registrar_bitacora(
+            request=self.request,
+            usuario=self.request.user,
+            accion="Actualización Usuario",
+            descripcion=f"Usuario {user.username} actualizado por {self.request.user.username}",
+            modulo="GESTION_USUARIOS"
+        )
 
 
 class UserDetailView(generics.RetrieveUpdateDestroyAPIView):

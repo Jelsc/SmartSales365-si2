@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -11,13 +11,30 @@ import type { Empresa } from '@/services/afpService';
 
 interface CargadorArchivosProps {
   empresas: Empresa[];
+  empresaSeleccionada: number | null;
   onArchivoCargado: () => void;
 }
 
-export default function CargadorArchivos({ empresas, onArchivoCargado }: CargadorArchivosProps) {
+export default function CargadorArchivos({ empresas, empresaSeleccionada, onArchivoCargado }: CargadorArchivosProps) {
   const [archivo, setArchivo] = useState<File | null>(null);
-  const [empresaId, setEmpresaId] = useState<string>('');
+  // Si solo hay una empresa, usar esa automáticamente; si hay múltiples, permitir selección
+  const [empresaId, setEmpresaId] = useState<string>(
+    empresas.length === 1 && empresas[0] ? empresas[0].id.toString() : 
+    empresaSeleccionada ? empresaSeleccionada.toString() : ''
+  );
   const [tipoPeriodo, setTipoPeriodo] = useState<'MES' | 'TRIMESTRE' | 'AÑO'>('MES');
+  
+  // Actualizar empresaId cuando cambie empresaSeleccionada o empresas
+  useEffect(() => {
+    if (empresas.length === 1 && empresas[0]) {
+      setEmpresaId(empresas[0].id.toString());
+    } else if (empresaSeleccionada) {
+      setEmpresaId(empresaSeleccionada.toString());
+    } else if (empresas.length > 0 && empresas[0]) {
+      // Si hay empresas pero no hay selección, usar la primera
+      setEmpresaId(empresas[0].id.toString());
+    }
+  }, [empresas, empresaSeleccionada]);
   const [año, setAño] = useState<number>(new Date().getFullYear());
   const [mes, setMes] = useState<number | undefined>(new Date().getMonth() + 1);
   const [trimestre, setTrimestre] = useState<number | undefined>(undefined);
@@ -50,10 +67,15 @@ export default function CargadorArchivos({ empresas, onArchivoCargado }: Cargado
       return;
     }
 
-    if (!empresaId) {
-      toast.error('Seleccione una empresa');
+    // Si solo hay una empresa, usar esa automáticamente
+    const empresaIdFinal = empresaId || (empresas.length === 1 && empresas[0] ? empresas[0].id.toString() : '');
+    
+    if (!empresaIdFinal) {
+      toast.error('No hay empresa disponible');
       return;
     }
+    
+    const empresaIdNum = Number(empresaIdFinal);
 
     if (tipoPeriodo === 'MES' && !mes) {
       toast.error('Seleccione un mes');
@@ -69,7 +91,7 @@ export default function CargadorArchivos({ empresas, onArchivoCargado }: Cargado
       setLoading(true);
       await afpService.cargarArchivo(
         archivo,
-        Number(empresaId),
+        empresaIdNum,
         tipoPeriodo,
         año,
         fechaCierre,
@@ -112,24 +134,39 @@ export default function CargadorArchivos({ empresas, onArchivoCargado }: Cargado
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <Label htmlFor="empresa">Empresa *</Label>
-              <Select value={empresaId || ''} onValueChange={setEmpresaId} required>
-                <SelectTrigger>
-                  <SelectValue placeholder="Seleccione una empresa" />
-                </SelectTrigger>
-                <SelectContent>
-                  {empresas.map((empresa) => (
-                    <SelectItem key={empresa.id} value={empresa.id.toString()}>
-                      {empresa.nombre}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+          <div className={`grid gap-4 ${empresas.length > 1 ? 'md:grid-cols-2' : 'md:grid-cols-1'}`}>
+            {/* Solo mostrar selector de empresa si hay más de una */}
+            {empresas.length > 1 ? (
+              <div className="space-y-2">
+                <Label htmlFor="empresa">Empresa *</Label>
+                <Select 
+                  {...(empresaId ? { value: empresaId } : {})}
+                  onValueChange={setEmpresaId} 
+                  required
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Seleccione una empresa" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {empresas.map((empresa) => (
+                      <SelectItem key={empresa.id} value={empresa.id.toString()}>
+                        {empresa.nombre}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            ) : empresas.length === 1 && empresas[0] ? (
+              <div className="space-y-2">
+                <Label>Empresa</Label>
+                <div className="px-3 py-2 bg-muted rounded-md text-sm font-medium">
+                  {empresas[0].nombre}
+                </div>
+                <input type="hidden" value={empresas[0].id.toString()} />
+              </div>
+            ) : null}
 
-            <div>
+            <div className="space-y-2">
               <Label htmlFor="tipoPeriodo">Tipo de Periodo *</Label>
               <Select
                 value={tipoPeriodo}
@@ -154,7 +191,7 @@ export default function CargadorArchivos({ empresas, onArchivoCargado }: Cargado
               </Select>
             </div>
 
-            <div>
+            <div className="space-y-2">
               <Label htmlFor="año">Año *</Label>
               <Input
                 id="año"
@@ -168,7 +205,7 @@ export default function CargadorArchivos({ empresas, onArchivoCargado }: Cargado
             </div>
 
             {tipoPeriodo === 'MES' && (
-              <div>
+              <div className="space-y-2">
                 <Label htmlFor="mes">Mes *</Label>
                 <Select
                   value={mes?.toString() || ''}
@@ -189,7 +226,7 @@ export default function CargadorArchivos({ empresas, onArchivoCargado }: Cargado
             )}
 
             {tipoPeriodo === 'TRIMESTRE' && (
-              <div>
+              <div className="space-y-2">
                 <Label htmlFor="trimestre">Trimestre *</Label>
                 <Select
                   value={trimestre?.toString() || ''}
@@ -208,7 +245,7 @@ export default function CargadorArchivos({ empresas, onArchivoCargado }: Cargado
               </div>
             )}
 
-            <div>
+            <div className="space-y-2">
               <Label htmlFor="fechaCierre">Fecha de Cierre *</Label>
               <Input
                 id="fechaCierre"
@@ -219,7 +256,7 @@ export default function CargadorArchivos({ empresas, onArchivoCargado }: Cargado
               />
             </div>
 
-            <div>
+            <div className="space-y-2">
               <Label htmlFor="version">Versión</Label>
               <Input
                 id="version"
@@ -231,9 +268,9 @@ export default function CargadorArchivos({ empresas, onArchivoCargado }: Cargado
             </div>
           </div>
 
-          <div>
+          <div className="space-y-2">
             <Label htmlFor="archivo">Archivo (CSV/Excel) *</Label>
-            <div className="mt-2">
+            <div>
               <Input
                 id="archivo"
                 type="file"
@@ -267,12 +304,55 @@ export default function CargadorArchivos({ empresas, onArchivoCargado }: Cargado
             <Button
               type="button"
               variant="outline"
-              disabled={loading || generandoDesdeVentas || !empresaId}
+              disabled={loading || generandoDesdeVentas}
               onClick={async () => {
-                if (!empresaId) {
-                  toast.error('Seleccione una empresa');
+                // Obtener empresaId: prioridad: estado local > empresa seleccionada > primera empresa disponible
+                let empresaIdFinal = empresaId;
+                
+                if (!empresaIdFinal && empresaSeleccionada) {
+                  empresaIdFinal = empresaSeleccionada.toString();
+                }
+                
+                if (!empresaIdFinal && empresas.length > 0 && empresas[0]) {
+                  empresaIdFinal = empresas[0].id.toString();
+                }
+                
+                // Si aún no hay empresaId, intentar recargar empresas desde el backend
+                if (!empresaIdFinal) {
+                  console.warn('No se encontró empresaId, intentando recargar empresas...');
+                  try {
+                    const empresasRecargadas = await afpService.obtenerEmpresas();
+                    const empresasArray = Array.isArray(empresasRecargadas) ? empresasRecargadas : [];
+                    if (empresasArray.length > 0 && empresasArray[0]) {
+                      empresaIdFinal = empresasArray[0].id.toString();
+                      // Actualizar el estado local
+                      setEmpresaId(empresasArray[0].id.toString());
+                    }
+                  } catch (errorRecarga: any) {
+                    console.error('Error al recargar empresas:', errorRecarga);
+                  }
+                }
+                
+                if (!empresaIdFinal) {
+                  toast.error('No hay empresa disponible. Asegúrate de que exista al menos una empresa.');
+                  console.error('No se pudo obtener empresaId. Estado:', { 
+                    empresaId, 
+                    empresaSeleccionada, 
+                    empresasLength: empresas.length,
+                    empresas 
+                  });
                   return;
                 }
+                
+                const empresaIdNum = Number(empresaIdFinal);
+                
+                if (isNaN(empresaIdNum) || empresaIdNum <= 0) {
+                  toast.error('ID de empresa inválido');
+                  console.error('ID de empresa inválido:', empresaIdFinal);
+                  return;
+                }
+                
+                console.log('Generando periodo desde ventas con empresaId:', empresaIdNum);
 
                 if (tipoPeriodo === 'MES' && !mes) {
                   toast.error('Seleccione un mes');
@@ -287,7 +367,7 @@ export default function CargadorArchivos({ empresas, onArchivoCargado }: Cargado
                 try {
                   setGenerandoDesdeVentas(true);
                   await afpService.generarPeriodoDesdeVentas(
-                    Number(empresaId),
+                    empresaIdNum,
                     tipoPeriodo,
                     año,
                     tipoPeriodo === 'MES' ? mes : undefined,
