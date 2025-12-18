@@ -62,6 +62,43 @@ if [ "$SERVER_IP" != "$DOMAIN_IP" ]; then
     fi
 fi
 
+# 3.1. Verificar puertos 80 y 443
+echo "🔍 Verificando accesibilidad de puertos..."
+
+# Verificar firewall local
+if command -v ufw &> /dev/null; then
+    UFW_STATUS=$(ufw status | grep -E "80/tcp|443/tcp")
+    if [ -z "$UFW_STATUS" ]; then
+        echo "⚠️  Los puertos 80 y 443 no están permitidos en UFW"
+        echo "📝 Habilitando puertos en firewall local..."
+        ufw allow 80/tcp
+        ufw allow 443/tcp
+        echo "✅ Puertos habilitados en UFW"
+    fi
+fi
+
+# Verificar si hay algo escuchando en el puerto 80
+PORT_80_USED=$(netstat -tuln 2>/dev/null | grep ":80 " || ss -tuln 2>/dev/null | grep ":80 ")
+if [ -n "$PORT_80_USED" ]; then
+    echo "⚠️  El puerto 80 está ocupado:"
+    echo "$PORT_80_USED"
+    echo "📝 Esto podría interferir con la validación de Certbot"
+fi
+
+# Test de conectividad externa al puerto 80
+echo "🔍 Probando conectividad externa al puerto 80..."
+timeout 5 bash -c "echo 'test' | nc -l -p 8888 &" 2>/dev/null
+if ! timeout 5 bash -c "curl -s --connect-timeout 3 http://$SERVER_IP:80" >/dev/null 2>&1; then
+    echo "❌ ADVERTENCIA: No se puede acceder al puerto 80 desde el exterior"
+    echo ""
+    echo "🔧 Verifica en Azure Portal:"
+    echo "   1. Ve a tu VM → Redes → Reglas de seguridad de entrada"
+    echo "   2. Asegúrate de tener estas reglas:"
+    echo "      - Puerto 80 (HTTP)  - Origen: * - Destino: * - Acción: Permitir"
+    echo "      - Puerto 443 (HTTPS) - Origen: * - Destino: * - Acción: Permitir"
+    echo ""
+fi
+
 # 4. Actualizar nginx.conf con el dominio correcto
 echo "📝 Actualizando configuración de Nginx..."
 sed -i "s/tu-dominio.com/$DOMAIN/g" nginx.conf
@@ -72,12 +109,67 @@ docker compose down
 
 # 6. Obtener certificado SSL
 echo "🔐 Obteniendo certificado SSL de Let's Encrypt..."
-certbot certonly --standalone \
-    -d $DOMAIN \
-    --non-interactive \
-    --agree-tos \
-    --email admin@$DOMAIN \
-    --http-01-port 80
+echo ""
+
+# Detectar si es DuckDNS
+if [[ $DOMAIN == *"duckdns.org" ]]; then
+    echo "🦆 Dominio DuckDNS detectado - Usando método DNS challenge..."
+    echo ""
+    echo "⚠️  Para DuckDNS necesitas:"
+    echo "   1. Tu token de DuckDNS (desde https://www.duckdns.org/)"
+    echo "   2. Instalar certbot-dns-duckdns"
+    echo ""
+    read -p "¿Tienes tu token de DuckDNS? (s/n): " -n 1 -r
+    echo
+    
+    if [[ $REPLY =~ ^[Ss]$ ]]; then
+        read -p "Ingresa tu token de DuckDNS: " DUCKDNS_TOKEN
+        
+        # Instalar plugin de DuckDNS si no está
+        if ! python3 -c "import certbot_dns_duckdns" 2>/dev/null; then
+            echo "📦 Instalando certbot-dns-duckdns..."
+            pip3 install certbot-dns-duckdns
+        fi
+        
+        # Crear archivo de credenciales
+        mkdir -p /root/.secrets
+        echo "dns_duckdns_token=$DUCKDNS_TOKEN" > /root/.secrets/duckdns.ini
+        chmod 600 /root/.secrets/duckdns.ini
+        
+        # Obtener certificado con DNS challenge
+        certbot certonly \
+            --authenticator dns-duckdns \
+            --dns-duckdns-credentials /root/.secrets/duckdns.ini \
+            -d $DOMAIN \
+            --non-interactive \
+            --agree-tos \
+            --email admin@$DOMAIN
+    else
+        echo "📝 Usando método HTTP alternativo..."
+        # Asegurar que el puerto 80 esté libre
+        fuser -k 80/tcp 2>/dev/null
+        
+        certbot certonly --standalone \
+            -d $DOMAIN \
+            --non-interactive \
+            --agree-tos \
+            --email admin@$DOMAIN \
+            --http-01-port 80 \
+            --preferred-challenges http
+    fi
+else
+    echo "📝 Usando método HTTP estándar..."
+    # Asegurar que el puerto 80 esté libre
+    fuser -k 80/tcp 2>/dev/null
+    
+    certbot certonly --standalone \
+        -d $DOMAIN \
+        --non-interactive \
+        --agree-tos \
+        --email admin@$DOMAIN \
+        --http-01-port 80 \
+        --preferred-challenges http
+fi
 
 if [ $? -eq 0 ]; then
     echo "✅ Certificado SSL obtenido exitosamente"
